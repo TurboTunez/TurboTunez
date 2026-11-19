@@ -6,32 +6,54 @@
   <title>Turbo Tunez — Spotify Listening Exchange</title>
   <style>
     * { box-sizing: border-box; }
-    body { font-family: system-ui, -apple-system, sans-serif; background: #0b0b0f; color: #f4f4f6; margin: 0; padding: 0 16px 40px; }
-    .wrap { max-width: 740px; margin: 0 auto; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #0b0b0f; color: #f4f4f6; margin: 0; padding: 0 16px 48px; }
+    .wrap { max-width: 780px; margin: 0 auto; }
 
-    /* Top Credit & Auth Banner */
+    /* Top Sticky Header & Navigation */
     .top-banner {
       position: sticky;
       top: 0;
-      z-index: 10;
-      background: linear-gradient(90deg, #141816, #181822);
-      border-bottom: 1px solid #2b2b38;
+      z-index: 20;
+      background: rgba(16, 16, 22, 0.96);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid #282836;
       padding: 12px 18px;
-      margin: 0 -16px 22px;
+      margin: 0 -16px 24px;
     }
     .banner-inner {
-      max-width: 740px;
+      max-width: 780px;
       margin: 0 auto;
       display: flex;
       justify-content: space-between;
       align-items: center;
       flex-wrap: wrap;
-      gap: 10px;
+      gap: 12px;
     }
-    .brand { font-size: 20px; font-weight: 800; letter-spacing: -0.4px; color: #fff; }
-    .brand span { color: #1db954; }
-    .banner-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .brand-link {
+      font-size: 21px;
+      font-weight: 800;
+      letter-spacing: -0.4px;
+      color: #fff;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .brand-link span { color: #1db954; }
 
+    .nav-links { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .nav-btn {
+      background: transparent;
+      color: #b8b8ca;
+      border: 1px solid transparent;
+      padding: 6px 11px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .nav-btn:hover { color: #fff; background: #1e1e28; }
+    .nav-btn.active { color: #fff; background: #22222f; border-color: #363649; }
+
+    .banner-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     .credit-badge {
       background: rgba(29, 185, 84, 0.14);
       border: 1px solid rgba(29, 185, 84, 0.45);
@@ -50,7 +72,9 @@
     }
 
     .card { background: #16161d; border: 1px solid #282834; border-radius: 14px; padding: 20px; margin-bottom: 18px; }
+    h1 { margin: 0 0 8px; font-size: 26px; }
     h2 { margin: 0 0 12px; font-size: 18px; }
+    h3 { margin: 14px 0 6px; font-size: 15px; color: #e2e2ee; }
     input, button { padding: 10px 14px; border-radius: 8px; border: 1px solid #353545; font-size: 14px; }
     input { background: #101015; color: #fff; margin-right: 8px; margin-bottom: 8px; }
     button { background: #1db954; color: #000; font-weight: 700; border: none; cursor: pointer; transition: opacity 0.15s; }
@@ -64,15 +88,26 @@
     .muted { color: #9c9cb0; font-size: 13px; }
     .status-live { color: #6ef29b; font-weight: 600; }
     .status-paused { color: #f5b942; font-weight: 600; }
+    .error-text { color: #ff6b6b; font-size: 13px; }
+    .success-text { color: #6ef29b; font-size: 13px; }
+    .tab-row { display: flex; gap: 8px; margin-bottom: 14px; }
     .hidden { display: none !important; }
   </style>
 </head>
 <body>
 
-  <!-- Top Sticky Banner -->
+  <!-- Top Sticky Header -->
   <div class="top-banner">
     <div class="banner-inner">
-      <div class="brand">Turbo <span>Tunez</span></div>
+      <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+        <a id="brandHomeLink" class="brand-link" href="#home">Turbo <span>Tunez</span></a>
+        <nav class="nav-links">
+          <button class="nav-btn active" data-page="home">Home</button>
+          <button class="nav-btn" data-page="promote">Promote Track</button>
+          <button class="nav-btn" data-page="mytracks">My Tracks</button>
+          <button class="nav-btn" data-page="rules">Rules & FAQ</button>
+        </nav>
+      </div>
       <div class="banner-controls">
         <span class="credit-badge">Credits: <strong id="creditCount">0</strong></span>
         <span id="signedInPill" class="user-pill hidden"></span>
@@ -83,46 +118,84 @@
   </div>
 
   <div class="wrap">
-    <!-- Sign-In Card (auto-hides once signed in) -->
+    <!-- Auth Card (shown when signed out or when Sign In is clicked) -->
     <div id="authCard" class="card">
-      <h2>Sign In or Create Free Listener Handle</h2>
-      <p class="muted" style="margin-top:0;">New handles start with <strong>3 free credits</strong>. Stay logged into Spotify in your browser for full-length track playback.</p>
+      <div class="tab-row">
+        <button id="modeSignInBtn" class="btn-sm">Sign In</button>
+        <button id="modeSignUpBtn" class="btn-secondary btn-sm">Create Account</button>
+      </div>
+      <h2 id="authHeading">Sign In to Turbo Tunez</h2>
+      <p id="authSubtext" class="muted" style="margin-top:0;">Enter your artist/listener handle and password.</p>
       <div style="display:flex; flex-wrap:wrap; align-items:center;">
-        <input id="usernameInput" placeholder="Enter your artist/listener handle" style="min-width:240px;" />
-        <button id="loginBtn">Continue</button>
+        <input id="usernameInput" placeholder="Handle (e.g. CadeSawMassacre)" style="min-width:210px;" />
+        <input id="passwordInput" type="password" placeholder="Password" style="min-width:200px;" />
+        <button id="authSubmitBtn">Sign In</button>
       </div>
       <p id="userStatus" class="muted" style="margin-bottom:0;"></p>
     </div>
 
-    <!-- Active Player Card -->
-    <div class="card">
-      <h2>Active Listening Player</h2>
-      <p id="nowPlayingLabel" class="muted">Pick a track from the Live Queue below, then press Play inside the Spotify player.</p>
-      <div id="embedContainer"></div>
-      <div style="margin-top:14px; display:flex; align-items:center; flex-wrap:wrap; gap:12px;">
-        <span>Verified play time: <strong id="timerDisplay">0</strong> / 28s</span>
-        <span id="playStateBadge" class="muted">Waiting for playback...</span>
-        <button id="claimBtn" disabled>Claim +1 Credit</button>
+    <!-- PAGE 1: HOME (Player + Live Queue) -->
+    <section id="page-home">
+      <div class="card">
+        <h2>Active Listening Player</h2>
+        <p id="nowPlayingLabel" class="muted">Pick an unplayed track from the Live Queue below, then press Play inside the Spotify player.</p>
+        <div id="embedContainer"></div>
+        <div style="margin-top:14px; display:flex; align-items:center; flex-wrap:wrap; gap:12px;">
+          <span>Verified play time: <strong id="timerDisplay">0</strong> / 28s</span>
+          <span id="playStateBadge" class="muted">Waiting for playback...</span>
+          <button id="claimBtn" disabled>Claim +1 Credit</button>
+        </div>
+        <p class="muted" style="margin:10px 0 0;">Each user can earn credit from each queued song <strong>1 time</strong>. Log into Spotify in your browser for full tracks.</p>
       </div>
-      <p class="muted" style="margin:10px 0 0;">Tip: Make sure you're logged into Spotify in this browser to hear full tracks instead of 30s previews.</p>
-    </div>
 
-    <!-- Submit Track Card -->
-    <div class="card">
-      <h2>Promote Your Spotify Track <span class="muted">(2 Credits = 3 Listens)</span></h2>
-      <div style="display:flex; flex-wrap:wrap; align-items:center;">
-        <input id="trackTitleInput" placeholder="Artist - Track Name" style="min-width:200px;" />
-        <input id="spotifyUrlInput" placeholder="https://open.spotify.com/track/..." style="min-width:260px;" />
-        <button id="submitTrackBtn">Queue Track</button>
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <h2 style="margin:0;">Live Community Queue</h2>
+          <button id="refreshQueueBtn" class="btn-secondary btn-sm">Refresh</button>
+        </div>
+        <div id="queueList" class="muted">Loading queue...</div>
       </div>
-      <p id="submitMsg" class="muted" style="margin-bottom:0;"></p>
-    </div>
+    </section>
 
-    <!-- Live Queue Card -->
-    <div class="card">
-      <h2>Live Queue</h2>
-      <div id="queueList" class="muted">Loading queue...</div>
-    </div>
+    <!-- PAGE 2: PROMOTE TRACK -->
+    <section id="page-promote" class="hidden">
+      <div class="card">
+        <h1>Promote Your Spotify Track</h1>
+        <p class="muted">Spend <strong>2 credits</strong> to add your track to the front of the Turbo Tunez queue for <strong>3 unique verified listens</strong>.</p>
+        <div style="display:flex; flex-direction:column; max-width:440px; margin-top:14px;">
+          <input id="trackTitleInput" placeholder="Artist - Song Title (e.g. Cade Saw Massacre - Brooklyn)" />
+          <input id="spotifyUrlInput" placeholder="https://open.spotify.com/track/..." />
+          <div>
+            <button id="submitTrackBtn">Queue Track (2 Credits)</button>
+          </div>
+        </div>
+        <p id="submitMsg" class="muted" style="margin-bottom:0;"></p>
+      </div>
+    </section>
+
+    <!-- PAGE 3: MY TRACKS -->
+    <section id="page-mytracks" class="hidden">
+      <div class="card">
+        <h1>My Submitted Tracks</h1>
+        <p class="muted">Track how many listens remain on the songs you've promoted.</p>
+        <div id="myTracksList" class="muted">Sign in to view your submitted tracks.</div>
+      </div>
+    </section>
+
+    <!-- PAGE 4: RULES & FAQ -->
+    <section id="page-rules" class="hidden">
+      <div class="card">
+        <h1>How Turbo Tunez Works</h1>
+        <h3>1. Earn Credits by Listening</h3>
+        <p class="muted">Pick any active track on the Home queue and press Play in the Spotify player. Once 28 seconds of real playback is verified, click <strong>Claim +1 Credit</strong>.</p>
+        <h3>2. One Listen Per Song Per User</h3>
+        <p class="muted">To keep promotion real and prevent credit farming, every account can only earn credit from a specific track <strong>once</strong>, and you cannot farm credits on your own uploads.</p>
+        <h3>3. Queue Your Own Releases</h3>
+        <p class="muted">Head to <strong>Promote Track</strong>, paste your Spotify track URL, and spend 2 credits to receive 3 unique listens from other artists and listeners.</p>
+        <h3>4. Full-Length Playback Tip</h3>
+        <p class="muted">Sign into <a href="https://open.spotify.com" target="_blank" rel="noopener" style="color:#1db954;">open.spotify.com</a> in this browser so Spotify plays full tracks instead of 30-second previews.</p>
+      </div>
+    </section>
   </div>
 
   <!-- Spotify Official Embed IFrame API -->
@@ -135,11 +208,13 @@
     const SUPABASE_KEY = 'sb_publishable_1IthYY_4_35O-luqYSqd0A_2HRRXtFb';
     const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    const STORAGE_KEY = 'turbo_tunez_handle';
-    const LISTEN_GOAL = 28; // 28s works cleanly for both full Spotify Premium streams & 30s fallback previews
+    const STORAGE_KEY = 'turbo_tunez_session_v2';
+    const LISTEN_GOAL = 28;
 
     let currentUser = null;
+    let authMode = 'signin'; // 'signin' | 'signup'
     let activeTrack = null;
+    let listenedTrackIds = new Set();
     let secondsListened = 0;
     let isActuallyPlaying = false;
     let lastTickMs = null;
@@ -148,12 +223,197 @@
     let embedController = null;
     let pendingUri = null;
 
+    // Hash password with SHA-256 in browser so plaintext passwords are never stored
+    async function hashPassword(password) {
+      const encoder = new TextEncoder();
+      const data = encoder.encode('tt_salt_' + password);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+      return Array.from(new Uint8Array(hashBuffer))
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('');
+    }
+
     function extractSpotifyTrackId(url) {
       const match = url.match(/track\/([a-zA-Z0-9]+)/);
       return match ? match[1] : null;
     }
 
-    // Hook into Spotify's official IFrame API so timer only counts real playback
+    // Multi-page navigation
+    function navigateTo(pageName) {
+      ['home', 'promote', 'mytracks', 'rules'].forEach((p) => {
+        document.getElementById(`page-${p}`).classList.toggle('hidden', p !== pageName);
+      });
+      document.querySelectorAll('.nav-btn').forEach((btn) => {
+        btn.classList.toggle('active', btn.dataset.page === pageName);
+      });
+      if (pageName === 'mytracks') loadMyTracks();
+      if (pageName === 'home') loadQueue();
+    }
+
+    document.getElementById('brandHomeLink').onclick = (e) => {
+      e.preventDefault();
+      navigateTo('home');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    document.querySelectorAll('.nav-btn').forEach((btn) => {
+      btn.onclick = () => navigateTo(btn.dataset.page);
+    });
+
+    // Auth mode toggle (Sign In vs Create Account)
+    function setAuthMode(mode) {
+      authMode = mode;
+      const isSignUp = mode === 'signup';
+      document.getElementById('modeSignInBtn').className = isSignUp ? 'btn-secondary btn-sm' : 'btn-sm';
+      document.getElementById('modeSignUpBtn').className = isSignUp ? 'btn-sm' : 'btn-secondary btn-sm';
+      document.getElementById('authHeading').textContent = isSignUp ? 'Create Free Turbo Tunez Account' : 'Sign In to Turbo Tunez';
+      document.getElementById('authSubtext').textContent = isSignUp
+        ? 'Pick a unique handle and password. New accounts start with 3 free credits.'
+        : 'Enter your artist/listener handle and password.';
+      document.getElementById('authSubmitBtn').textContent = isSignUp ? 'Create Account' : 'Sign In';
+      document.getElementById('userStatus').textContent = '';
+    }
+
+    document.getElementById('modeSignInBtn').onclick = () => setAuthMode('signin');
+    document.getElementById('modeSignUpBtn').onclick = () => setAuthMode('signup');
+
+    function updateAuthUI() {
+      const authCard = document.getElementById('authCard');
+      const signedInPill = document.getElementById('signedInPill');
+      const bannerSignInBtn = document.getElementById('bannerSignInBtn');
+      const bannerSignOutBtn = document.getElementById('bannerSignOutBtn');
+      const creditCount = document.getElementById('creditCount');
+
+      if (currentUser) {
+        authCard.classList.add('hidden');
+        signedInPill.textContent = `@${currentUser.username}`;
+        signedInPill.classList.remove('hidden');
+        bannerSignInBtn.classList.add('hidden');
+        bannerSignOutBtn.classList.remove('hidden');
+        creditCount.textContent = currentUser.credits;
+      } else {
+        authCard.classList.remove('hidden');
+        signedInPill.classList.add('hidden');
+        bannerSignInBtn.classList.remove('hidden');
+        bannerSignOutBtn.classList.add('hidden');
+        creditCount.textContent = '0';
+      }
+    }
+
+    async function loadUserListenHistory() {
+      listenedTrackIds = new Set();
+      if (!currentUser) return;
+      const { data } = await supabase
+        .from('listens')
+        .select('track_id')
+        .eq('user_id', currentUser.id);
+      if (data) {
+        data.forEach((row) => listenedTrackIds.add(row.track_id));
+      }
+    }
+
+    async function handleAuthSubmit() {
+      const handle = document.getElementById('usernameInput').value.trim();
+      const password = document.getElementById('passwordInput').value;
+      const statusEl = document.getElementById('userStatus');
+
+      if (!handle || password.length < 4) {
+        statusEl.className = 'error-text';
+        statusEl.textContent = 'Enter a handle and a password (at least 4 characters).';
+        return;
+      }
+
+      statusEl.className = 'muted';
+      statusEl.textContent = authMode === 'signup' ? 'Creating account...' : 'Signing in...';
+      const pwHash = await hashPassword(password);
+
+      const { data: existing, error: fetchErr } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('username', handle)
+        .maybeSingle();
+
+      if (fetchErr) {
+        statusEl.className = 'error-text';
+        statusEl.textContent = 'Database error: ' + fetchErr.message;
+        return;
+      }
+
+      if (authMode === 'signup') {
+        if (existing) {
+          statusEl.className = 'error-text';
+          statusEl.textContent = 'That handle is already taken. Switch to Sign In or pick another handle.';
+          return;
+        }
+        const { data: created, error: createErr } = await supabase
+          .from('profiles')
+          .insert([{ username: handle, password_hash: pwHash, credits: 3 }])
+          .select()
+          .single();
+        if (createErr) {
+          statusEl.className = 'error-text';
+          statusEl.textContent = 'Could not create account: ' + createErr.message;
+          return;
+        }
+        currentUser = created;
+      } else {
+        if (!existing) {
+          statusEl.className = 'error-text';
+          statusEl.textContent = 'No account found with that handle. Click "Create Account" above.';
+          return;
+        }
+        // Allow claiming legacy passwordless MVP accounts on first login
+        if (!existing.password_hash) {
+          const { data: upgraded } = await supabase
+            .from('profiles')
+            .update({ password_hash: pwHash })
+            .eq('id', existing.id)
+            .select()
+            .single();
+          currentUser = upgraded || existing;
+        } else if (existing.password_hash !== pwHash) {
+          statusEl.className = 'error-text';
+          statusEl.textContent = 'Incorrect password.';
+          return;
+        } else {
+          currentUser = existing;
+        }
+      }
+
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ id: currentUser.id, username: currentUser.username }));
+      document.getElementById('passwordInput').value = '';
+      statusEl.textContent = '';
+      await loadUserListenHistory();
+      updateAuthUI();
+      await loadQueue();
+    }
+
+    function signOut() {
+      currentUser = null;
+      listenedTrackIds = new Set();
+      localStorage.removeItem(STORAGE_KEY);
+      document.getElementById('usernameInput').value = '';
+      document.getElementById('passwordInput').value = '';
+      document.getElementById('userStatus').className = 'muted';
+      document.getElementById('userStatus').textContent = 'Signed out.';
+      updateAuthUI();
+      loadQueue();
+    }
+
+    async function refreshUser() {
+      if (!currentUser) return;
+      const { data } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', currentUser.id)
+        .single();
+      if (data) {
+        currentUser = data;
+        updateAuthUI();
+      }
+    }
+
+    // Spotify Embed IFrame API
     window.onSpotifyIframeApiReady = (IFrameAPI) => {
       spotifyApi = IFrameAPI;
       if (pendingUri) {
@@ -188,7 +448,6 @@
                 lastTickMs = now;
               } else if (lastTickMs && !document.hidden) {
                 const deltaSec = (now - lastTickMs) / 1000;
-                // Only count realistic real-time playback steps (ignores scrubbing ahead)
                 if (deltaSec > 0 && deltaSec < 2.5) {
                   secondsListened += deltaSec;
                 }
@@ -210,90 +469,6 @@
       );
     }
 
-    function updateAuthUI() {
-      const authCard = document.getElementById('authCard');
-      const signedInPill = document.getElementById('signedInPill');
-      const bannerSignInBtn = document.getElementById('bannerSignInBtn');
-      const bannerSignOutBtn = document.getElementById('bannerSignOutBtn');
-      const creditCount = document.getElementById('creditCount');
-
-      if (currentUser) {
-        authCard.classList.add('hidden');
-        signedInPill.textContent = `@${currentUser.username}`;
-        signedInPill.classList.remove('hidden');
-        bannerSignInBtn.classList.add('hidden');
-        bannerSignOutBtn.classList.remove('hidden');
-        creditCount.textContent = currentUser.credits;
-      } else {
-        authCard.classList.remove('hidden');
-        signedInPill.classList.add('hidden');
-        bannerSignInBtn.classList.remove('hidden');
-        bannerSignOutBtn.classList.add('hidden');
-        creditCount.textContent = '0';
-      }
-    }
-
-    async function signInWithHandle(rawHandle) {
-      const handle = rawHandle.trim();
-      const statusEl = document.getElementById('userStatus');
-      if (!handle) {
-        statusEl.textContent = 'Please type a handle first.';
-        return;
-      }
-
-      statusEl.textContent = 'Signing in...';
-
-      let { data: existing, error: fetchErr } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('username', handle)
-        .maybeSingle();
-
-      if (fetchErr) {
-        statusEl.textContent = 'Error: ' + fetchErr.message;
-        return;
-      }
-
-      if (!existing) {
-        const { data: created, error: createErr } = await supabase
-          .from('profiles')
-          .insert([{ username: handle, credits: 3 }])
-          .select()
-          .single();
-        if (createErr) {
-          statusEl.textContent = 'Error creating profile: ' + createErr.message;
-          return;
-        }
-        existing = created;
-      }
-
-      currentUser = existing;
-      localStorage.setItem(STORAGE_KEY, existing.username);
-      statusEl.textContent = '';
-      updateAuthUI();
-    }
-
-    function signOut() {
-      currentUser = null;
-      localStorage.removeItem(STORAGE_KEY);
-      document.getElementById('usernameInput').value = '';
-      document.getElementById('userStatus').textContent = 'Signed out.';
-      updateAuthUI();
-    }
-
-    async function refreshUser() {
-      if (!currentUser) return;
-      const { data } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', currentUser.id)
-        .single();
-      if (data) {
-        currentUser = data;
-        updateAuthUI();
-      }
-    }
-
     async function loadQueue() {
       const { data, error } = await supabase
         .from('tracks')
@@ -307,12 +482,15 @@
         return;
       }
       if (!data || data.length === 0) {
-        listEl.innerHTML = '<p class="muted">No tracks in queue yet. Submit one above to get things rolling!</p>';
+        listEl.innerHTML = '<p class="muted">No tracks in queue yet. Go to Promote Track to add one!</p>';
         return;
       }
 
       listEl.innerHTML = '';
       data.forEach((track) => {
+        const isOwnTrack = currentUser && track.submitted_by.toLowerCase() === currentUser.username.toLowerCase();
+        const alreadyListened = listenedTrackIds.has(track.id);
+
         const row = document.createElement('div');
         row.className = 'row';
         row.innerHTML = `
@@ -321,15 +499,74 @@
             <div class="muted">Queued by @${track.submitted_by} · ${track.remaining_listens} listens left</div>
           </div>
         `;
+
         const btn = document.createElement('button');
-        btn.textContent = 'Play & Earn';
-        btn.onclick = () => startTrackSession(track);
+        if (isOwnTrack) {
+          btn.textContent = 'Your Track';
+          btn.className = 'btn-secondary';
+          btn.disabled = true;
+        } else if (alreadyListened) {
+          btn.textContent = 'Listened ✓';
+          btn.className = 'btn-secondary';
+          btn.disabled = true;
+        } else {
+          btn.textContent = 'Play & Earn';
+          btn.onclick = () => startTrackSession(track);
+        }
+
         row.appendChild(btn);
         listEl.appendChild(row);
       });
     }
 
+    async function loadMyTracks() {
+      const box = document.getElementById('myTracksList');
+      if (!currentUser) {
+        box.textContent = 'Sign in at the top to see your submitted tracks.';
+        return;
+      }
+      const { data, error } = await supabase
+        .from('tracks')
+        .select('*')
+        .eq('submitted_by', currentUser.username)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        box.textContent = 'Error loading your tracks: ' + error.message;
+        return;
+      }
+      if (!data || data.length === 0) {
+        box.innerHTML = '<p class="muted">You haven’t queued any tracks yet. Click <strong>Promote Track</strong> in the top bar.</p>';
+        return;
+      }
+
+      box.innerHTML = '';
+      data.forEach((t) => {
+        const row = document.createElement('div');
+        row.className = 'row';
+        const status = t.remaining_listens > 0 ? `${t.remaining_listens} listens remaining` : 'Completed ✓';
+        row.innerHTML = `
+          <div>
+            <strong>${t.track_title}</strong>
+            <div class="muted">${status}</div>
+          </div>
+        `;
+        box.appendChild(row);
+      });
+    }
+
     function startTrackSession(track) {
+      if (!currentUser) {
+        document.getElementById('authCard').classList.remove('hidden');
+        document.getElementById('usernameInput').focus();
+        alert('Sign in or create a free account first so your credit can be saved!');
+        return;
+      }
+      if (listenedTrackIds.has(track.id)) {
+        alert('You already listened to this track and claimed your credit.');
+        return;
+      }
+
       const trackId = extractSpotifyTrackId(track.spotify_url);
       if (!trackId) {
         alert('Invalid Spotify track URL.');
@@ -358,12 +595,9 @@
       }
     }
 
-    document.getElementById('loginBtn').onclick = () => {
-      signInWithHandle(document.getElementById('usernameInput').value);
-    };
-
-    document.getElementById('usernameInput').addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') signInWithHandle(e.target.value);
+    document.getElementById('authSubmitBtn').onclick = handleAuthSubmit;
+    document.getElementById('passwordInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') handleAuthSubmit();
     });
 
     document.getElementById('bannerSignInBtn').onclick = () => {
@@ -372,11 +606,26 @@
     };
 
     document.getElementById('bannerSignOutBtn').onclick = signOut;
+    document.getElementById('refreshQueueBtn').onclick = loadQueue;
 
     document.getElementById('claimBtn').onclick = async () => {
       if (!currentUser || !activeTrack || creditClaimedForTrack || secondsListened < LISTEN_GOAL) return;
       creditClaimedForTrack = true;
       document.getElementById('claimBtn').disabled = true;
+
+      // Record unique (user_id, track_id) listen in Supabase so this user can never claim this song again
+      const { error: listenErr } = await supabase
+        .from('listens')
+        .insert([{ user_id: currentUser.id, track_id: activeTrack.id }]);
+
+      if (listenErr) {
+        alert('You already claimed credit for this track.');
+        await loadUserListenHistory();
+        await loadQueue();
+        return;
+      }
+
+      listenedTrackIds.add(activeTrack.id);
 
       await supabase
         .from('profiles')
@@ -391,25 +640,27 @@
 
       await refreshUser();
       await loadQueue();
-      alert('+1 Credit claimed!');
+      alert('+1 Credit claimed! This track is now marked as Listened.');
     };
 
     document.getElementById('submitTrackBtn').onclick = async () => {
       const msgEl = document.getElementById('submitMsg');
       if (!currentUser) {
-        msgEl.textContent = 'Sign in with a handle at the top first.';
-        document.getElementById('usernameInput').focus();
+        msgEl.className = 'error-text';
+        msgEl.textContent = 'Sign in at the top first.';
         return;
       }
       await refreshUser();
       if (currentUser.credits < 2) {
-        msgEl.textContent = 'You need at least 2 credits to queue a track. Listen to a song first!';
+        msgEl.className = 'error-text';
+        msgEl.textContent = 'You need at least 2 credits to queue a track. Listen to tracks on Home first!';
         return;
       }
 
       const title = document.getElementById('trackTitleInput').value.trim();
       const url = document.getElementById('spotifyUrlInput').value.trim();
       if (!title || !extractSpotifyTrackId(url)) {
+        msgEl.className = 'error-text';
         msgEl.textContent = 'Enter a track title and a valid open.spotify.com/track/... link.';
         return;
       }
@@ -423,6 +674,7 @@
         }
       ]);
       if (insertErr) {
+        msgEl.className = 'error-text';
         msgEl.textContent = 'Error submitting track: ' + insertErr.message;
         return;
       }
@@ -436,18 +688,26 @@
       await loadQueue();
       document.getElementById('trackTitleInput').value = '';
       document.getElementById('spotifyUrlInput').value = '';
+      msgEl.className = 'success-text';
       msgEl.textContent = 'Track added to the Turbo Tunez queue!';
     };
 
-    // Auto-restore previous session if saved
-    const savedHandle = localStorage.getItem(STORAGE_KEY);
-    if (savedHandle) {
-      signInWithHandle(savedHandle);
-    } else {
+    // Restore saved session on load
+    (async () => {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        try {
+          const saved = JSON.parse(raw);
+          const { data } = await supabase.from('profiles').select('*').eq('id', saved.id).maybeSingle();
+          if (data) {
+            currentUser = data;
+            await loadUserListenHistory();
+          }
+        } catch (_) {}
+      }
       updateAuthUI();
-    }
-
-    loadQueue();
+      await loadQueue();
+    })();
   </script>
 </body>
 </html>
