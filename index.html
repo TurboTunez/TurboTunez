@@ -82,6 +82,7 @@
     button:hover:not(:disabled) { opacity: 0.9; }
     button:disabled { opacity: 0.35; cursor: not-allowed; }
     .btn-secondary { background: #262633; color: #f4f4f6; border: 1px solid #38384a; }
+    .btn-active-track { background: rgba(29, 185, 84, 0.16); color: #6ef29b; border: 1px solid rgba(29, 185, 84, 0.45); opacity: 1 !important; }
     .btn-sm { padding: 6px 12px; font-size: 13px; }
 
     /* Budget Selector Box */
@@ -117,8 +118,9 @@
       font-size: 13px;
     }
 
-    .row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid #242430; }
+    .row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid #242430; flex-wrap: wrap; }
     .row:last-child { border-bottom: none; }
+    .row-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
     .muted { color: #9c9cb0; font-size: 13px; }
     .status-live { color: #6ef29b; font-weight: 600; }
     .status-paused { color: #f5b942; font-weight: 600; }
@@ -178,6 +180,7 @@
           <span>Verified play time: <strong id="timerDisplay">0</strong> / 28s</span>
           <span id="playStateBadge" class="muted">Waiting for playback...</span>
           <button id="claimBtn" disabled>Claim +1 Credit</button>
+          <button id="cancelSessionBtn" class="btn-secondary btn-sm hidden">Cancel</button>
         </div>
         <p class="muted" style="margin:10px 0 0;">Each user can earn credit from each queued song <strong>1 time</strong>. Log into Spotify in your browser for full tracks.</p>
       </div>
@@ -235,7 +238,7 @@
     <section id="page-mytracks" class="hidden">
       <div class="card">
         <h1>My Promoted Campaigns</h1>
-        <p class="muted">Monitor remaining listen budget on your queued tracks or top up active campaigns (+3 credits = +3 listens).</p>
+        <p class="muted">Monitor remaining listen budget on your queued tracks or add credits to any song you've submitted (<strong>1 credit = +1 listen</strong>).</p>
         <div id="myTracksList" class="muted">Sign in to view your submitted tracks.</div>
       </div>
     </section>
@@ -246,8 +249,8 @@
         <h1>How Turbo Tunez Works</h1>
         <h3>1. 1 Credit = 1 Verified Listen</h3>
         <p class="muted">Pick any active track on the Home queue and press Play in the Spotify player. Once 28 seconds of real playback is verified, click <strong>Claim +1 Credit</strong>.</p>
-        <h3>2. Set Your Own Campaign Budgets (3 Credit Minimum)</h3>
-        <p class="muted">On <strong>Promote Track</strong>, choose how many credits to put behind your track (minimum 3 credits). Every credit buys 1 unique listener—so a 10-credit campaign delivers 10 unique listens.</p>
+        <h3>2. Set & Top Up Campaign Budgets (3 Credit Minimum)</h3>
+        <p class="muted">On <strong>Promote Track</strong>, choose how many credits to put behind your track (minimum 3 credits). Whenever you earn more credits, you can add <strong>+1</strong>, <strong>+3</strong>, or a custom amount of credits straight onto any live song you submitted.</p>
         <h3>3. One Listen Per Song Per User</h3>
         <p class="muted">Every account can only earn credit from a specific track <strong>once</strong>, and you cannot earn credits from your own uploads.</p>
         <h3>4. Full-Length Playback Tip</h3>
@@ -294,6 +297,20 @@
     function extractSpotifyTrackId(url) {
       const match = url.match(/track\/([a-zA-Z0-9]+)/);
       return match ? match[1] : null;
+    }
+
+    function resetActiveSessionUI() {
+      activeTrack = null;
+      secondsListened = 0;
+      isActuallyPlaying = false;
+      lastTickMs = null;
+      creditClaimedForTrack = false;
+      document.getElementById('timerDisplay').textContent = '0';
+      document.getElementById('claimBtn').disabled = true;
+      document.getElementById('cancelSessionBtn').classList.add('hidden');
+      document.getElementById('playStateBadge').textContent = 'Waiting for playback...';
+      document.getElementById('playStateBadge').className = 'muted';
+      document.getElementById('nowPlayingLabel').textContent = 'Pick an unplayed track from the Live Queue below, then press Play inside the Spotify player.';
     }
 
     // Budget UI synchronization
@@ -489,6 +506,7 @@
     function signOut() {
       currentUser = null;
       listenedTrackIds = new Set();
+      resetActiveSessionUI();
       localStorage.removeItem(STORAGE_KEY);
       document.getElementById('usernameInput').value = '';
       document.getElementById('passwordInput').value = '';
@@ -531,6 +549,7 @@
         (controller) => {
           embedController = controller;
           controller.addListener('playback_update', (e) => {
+            if (!activeTrack) return;
             const data = e.data;
             const badge = document.getElementById('playStateBadge');
 
@@ -567,6 +586,85 @@
       );
     }
 
+    async function addCreditsToTrack(track, addCredits) {
+      if (!currentUser) return;
+      const creditsToAdd = Math.floor(Number(addCredits) || 0);
+      if (creditsToAdd < 1) {
+        alert('Enter at least 1 credit to add.');
+        return;
+      }
+
+      await refreshUser();
+      if (currentUser.credits < creditsToAdd) {
+        alert(`You only have ${currentUser.credits} credits available.`);
+        return;
+      }
+
+      const nextListens = track.remaining_listens + creditsToAdd;
+      const { error: trackErr } = await supabase
+        .from('tracks')
+        .update({ remaining_listens: nextListens })
+        .eq('id', track.id);
+
+      if (trackErr) {
+        alert('Could not update track budget: ' + trackErr.message);
+        return;
+      }
+
+      const { error: profErr } = await supabase
+        .from('profiles')
+        .update({ credits: currentUser.credits - creditsToAdd })
+        .eq('id', currentUser.id);
+
+      if (profErr) {
+        alert('Could not update credit balance: ' + profErr.message);
+        return;
+      }
+
+      await refreshUser();
+      await loadQueue();
+      if (!document.getElementById('page-mytracks').classList.contains('hidden')) {
+        await loadMyTracks();
+      }
+      alert(`Added +${creditsToAdd} ${creditsToAdd === 1 ? 'credit' : 'credits'} (+${creditsToAdd} ${creditsToAdd === 1 ? 'listen' : 'listens'}) to "${track.track_title}"!`);
+    }
+
+    function buildTopUpControls(track, includeCustom = true) {
+      const wrap = document.createElement('div');
+      wrap.className = 'row-actions';
+
+      const plus1 = document.createElement('button');
+      plus1.textContent = '+1 Credit';
+      plus1.className = 'btn-secondary btn-sm';
+      plus1.disabled = !currentUser || currentUser.credits < 1;
+      plus1.onclick = () => addCreditsToTrack(track, 1);
+
+      const plus3 = document.createElement('button');
+      plus3.textContent = '+3 Credits';
+      plus3.className = 'btn-secondary btn-sm';
+      plus3.disabled = !currentUser || currentUser.credits < 3;
+      plus3.onclick = () => addCreditsToTrack(track, 3);
+
+      wrap.appendChild(plus1);
+      wrap.appendChild(plus3);
+
+      if (includeCustom) {
+        const customBtn = document.createElement('button');
+        customBtn.textContent = '+Custom';
+        customBtn.className = 'btn-secondary btn-sm';
+        customBtn.disabled = !currentUser || currentUser.credits < 1;
+        customBtn.onclick = () => {
+          const input = prompt(`How many credits do you want to add to "${track.track_title}"? (Balance: ${currentUser.credits})`, '1');
+          if (input !== null) {
+            addCreditsToTrack(track, input);
+          }
+        };
+        wrap.appendChild(customBtn);
+      }
+
+      return wrap;
+    }
+
     async function loadQueue() {
       const { data, error } = await supabase
         .from('tracks')
@@ -585,10 +683,13 @@
         return;
       }
 
+      const sessionInProgress = Boolean(activeTrack && !creditClaimedForTrack);
+
       listEl.innerHTML = '';
       data.forEach((track) => {
         const isOwnTrack = currentUser && track.submitted_by.toLowerCase() === currentUser.username.toLowerCase();
         const alreadyListened = listenedTrackIds.has(track.id);
+        const isCurrentSession = sessionInProgress && activeTrack.id === track.id;
 
         const row = document.createElement('div');
         row.className = 'row';
@@ -599,46 +700,31 @@
           </div>
         `;
 
-        const btn = document.createElement('button');
         if (isOwnTrack) {
-          btn.textContent = 'Your Campaign';
-          btn.className = 'btn-secondary';
-          btn.disabled = true;
-        } else if (alreadyListened) {
-          btn.textContent = 'Listened ✓';
-          btn.className = 'btn-secondary';
-          btn.disabled = true;
+          row.appendChild(buildTopUpControls(track, true));
         } else {
-          btn.textContent = 'Play & Earn (+1)';
-          btn.onclick = () => startTrackSession(track);
+          const btn = document.createElement('button');
+          if (isCurrentSession) {
+            btn.textContent = 'Now Listening...';
+            btn.className = 'btn-active-track';
+            btn.disabled = true;
+          } else if (alreadyListened) {
+            btn.textContent = 'Listened ✓';
+            btn.className = 'btn-secondary';
+            btn.disabled = true;
+          } else if (sessionInProgress) {
+            btn.textContent = 'Finish Current Track';
+            btn.className = 'btn-secondary';
+            btn.disabled = true;
+          } else {
+            btn.textContent = 'Play & Earn (+1)';
+            btn.onclick = () => startTrackSession(track);
+          }
+          row.appendChild(btn);
         }
 
-        row.appendChild(btn);
         listEl.appendChild(row);
       });
-    }
-
-    async function topUpCampaign(trackId, currentRemaining, addCredits) {
-      if (!currentUser) return;
-      await refreshUser();
-      if (currentUser.credits < addCredits) {
-        alert(`You need at least ${addCredits} credits to add that boost.`);
-        return;
-      }
-
-      await supabase
-        .from('tracks')
-        .update({ remaining_listens: currentRemaining + addCredits })
-        .eq('id', trackId);
-
-      await supabase
-        .from('profiles')
-        .update({ credits: currentUser.credits - addCredits })
-        .eq('id', currentUser.id);
-
-      await refreshUser();
-      await loadMyTracks();
-      await loadQueue();
     }
 
     async function loadMyTracks() {
@@ -667,8 +753,8 @@
         const row = document.createElement('div');
         row.className = 'row';
         const status = t.remaining_listens > 0
-          ? `Active · ${t.remaining_listens} ${t.remaining_listens === 1 ? 'listen' : 'listens'} remaining`
-          : 'Budget Completed ✓';
+          ? `Live in Queue · ${t.remaining_listens} ${t.remaining_listens === 1 ? 'listen' : 'listens'} remaining`
+          : 'Budget Completed · Add credits to re-queue';
         row.innerHTML = `
           <div>
             <strong>${t.track_title}</strong>
@@ -676,17 +762,15 @@
           </div>
         `;
 
-        const boostBtn = document.createElement('button');
-        boostBtn.textContent = '+3 Credits (+3 Listens)';
-        boostBtn.className = 'btn-secondary btn-sm';
-        boostBtn.onclick = () => topUpCampaign(t.id, t.remaining_listens, 3);
-        row.appendChild(boostBtn);
-
+        row.appendChild(buildTopUpControls(t, true));
         box.appendChild(row);
       });
     }
 
     function startTrackSession(track) {
+      if (activeTrack && !creditClaimedForTrack) {
+        return;
+      }
       if (!currentUser) {
         document.getElementById('authCard').classList.remove('hidden');
         document.getElementById('usernameInput').focus();
@@ -712,6 +796,7 @@
 
       document.getElementById('timerDisplay').textContent = '0';
       document.getElementById('claimBtn').disabled = true;
+      document.getElementById('cancelSessionBtn').classList.remove('hidden');
       document.getElementById('playStateBadge').textContent = 'Press Play inside Spotify player';
       document.getElementById('playStateBadge').className = 'status-paused';
       document.getElementById('nowPlayingLabel').textContent = `Loaded: ${track.track_title} (by @${track.submitted_by})`;
@@ -724,7 +809,17 @@
       } else {
         pendingUri = uri;
       }
+
+      loadQueue();
     }
+
+    document.getElementById('cancelSessionBtn').onclick = () => {
+      if (embedController) {
+        try { embedController.pause(); } catch (_) {}
+      }
+      resetActiveSessionUI();
+      loadQueue();
+    };
 
     document.getElementById('authSubmitBtn').onclick = handleAuthSubmit;
     document.getElementById('passwordInput').addEventListener('keydown', (e) => {
@@ -741,36 +836,39 @@
 
     document.getElementById('claimBtn').onclick = async () => {
       if (!currentUser || !activeTrack || creditClaimedForTrack || secondsListened < LISTEN_GOAL) return;
+      const finishedTrack = activeTrack;
       creditClaimedForTrack = true;
       document.getElementById('claimBtn').disabled = true;
 
       const { error: listenErr } = await supabase
         .from('listens')
-        .insert([{ user_id: currentUser.id, track_id: activeTrack.id }]);
+        .insert([{ user_id: currentUser.id, track_id: finishedTrack.id }]);
 
       if (listenErr) {
         alert('You already claimed credit for this track.');
+        resetActiveSessionUI();
         await loadUserListenHistory();
         await loadQueue();
         return;
       }
 
-      listenedTrackIds.add(activeTrack.id);
+      listenedTrackIds.add(finishedTrack.id);
 
       await supabase
         .from('profiles')
         .update({ credits: currentUser.credits + 1 })
         .eq('id', currentUser.id);
 
-      const nextListens = Math.max(0, activeTrack.remaining_listens - 1);
+      const nextListens = Math.max(0, finishedTrack.remaining_listens - 1);
       await supabase
         .from('tracks')
         .update({ remaining_listens: nextListens })
-        .eq('id', activeTrack.id);
+        .eq('id', finishedTrack.id);
 
+      resetActiveSessionUI();
       await refreshUser();
       await loadQueue();
-      alert('+1 Credit claimed! This track is now marked as Listened.');
+      alert('+1 Credit claimed! Pick your next track from the queue.');
     };
 
     document.getElementById('submitTrackBtn').onclick = async () => {
