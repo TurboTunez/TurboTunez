@@ -1,8 +1,259 @@
 <!DOCTYPE html>
-<html>
-  <head><title>Track Queue</title></head>
-  <body style="background:#111;color:#fff;font-family:sans-serif;padding:40px;">
-    <h1>Listening Exchange — Coming Live Today</h1>
-    <p>Site is working.</p>
-  </body>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Spin Swap — Spotify Listening Exchange</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #0e0e11; color: #f4f4f6; margin: 0; padding: 24px; }
+    .wrap { max-width: 720px; margin: 0 auto; }
+    .card { background: #18181f; border: 1px solid #2a2a36; border-radius: 12px; padding: 18px; margin-bottom: 18px; }
+    input, button { padding: 10px 12px; border-radius: 8px; border: 1px solid #353545; font-size: 14px; }
+    input { background: #111116; color: #fff; margin-right: 8px; margin-bottom: 8px; }
+    button { background: #1db954; color: #000; font-weight: 700; border: none; cursor: pointer; }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+    .row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #262632; }
+    .row:last-child { border-bottom: none; }
+    .muted { color: #a0a0b2; font-size: 13px; }
+    .pill { background: #232330; padding: 4px 10px; border-radius: 999px; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Spin Swap</h1>
+    <p class="muted">Listen to tracks for 45 seconds to earn +1 credit, then queue your own Spotify track.</p>
+
+    <div class="card">
+      <h2>1. Your Listener Profile</h2>
+      <input id="usernameInput" placeholder="Enter handle (e.g. CadeSawMassacre)" />
+      <button id="loginBtn">Load / Create Profile</button>
+      <p id="userStatus" class="muted">Not signed in yet.</p>
+      <div><span class="pill">Credits: <strong id="creditCount">0</strong></span></div>
+    </div>
+
+    <div class="card">
+      <h2>2. Active Listening Player</h2>
+      <p id="nowPlayingLabel" class="muted">Select a track from the queue below to start.</p>
+      <div id="embedContainer"></div>
+      <p style="margin-top:12px;">
+        Listen progress: <strong id="timerDisplay">0</strong> / 45s
+        <button id="claimBtn" disabled style="margin-left:12px;">Claim +1 Credit</button>
+      </p>
+    </div>
+
+    <div class="card">
+      <h2>3. Submit Your Spotify Track (Costs 2 Credits for 3 Listens)</h2>
+      <input id="trackTitleInput" placeholder="Artist - Song Title" />
+      <input id="spotifyUrlInput" placeholder="https://open.spotify.com/track/..." style="min-width:260px;" />
+      <button id="submitTrackBtn">Queue Track</button>
+      <p id="submitMsg" class="muted"></p>
+    </div>
+
+    <div class="card">
+      <h2>4. Live Queue</h2>
+      <div id="queueList" class="muted">Loading queue...</div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+    const SUPABASE_URL = 'https://gmwhupiolnyjunracaci.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_1IthYY_4_35O-luqYSqd0A_2HRRXtFb';
+    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    let currentUser = null;
+    let activeTrack = null;
+    let secondsListened = 0;
+    let timerInterval = null;
+    let creditClaimedForTrack = false;
+
+    const LISTEN_GOAL = 45;
+
+    function extractSpotifyTrackId(url) {
+      const match = url.match(/track\/([a-zA-Z0-9]+)/);
+      return match ? match[1] : null;
+    }
+
+    async function refreshUser() {
+      if (!currentUser) return;
+      const { data } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', currentUser.id)
+        .single();
+      if (data) {
+        currentUser = data;
+        document.getElementById('creditCount').textContent = data.credits;
+      }
+    }
+
+    async function loadQueue() {
+      const { data, error } = await supabase
+        .from('tracks')
+        .select('*')
+        .gt('remaining_listens', 0)
+        .order('created_at', { ascending: false });
+
+      const listEl = document.getElementById('queueList');
+      if (error) {
+        listEl.textContent = 'Could not load queue: ' + error.message;
+        return;
+      }
+      if (!data || data.length === 0) {
+        listEl.innerHTML = '<p class="muted">No tracks in queue yet. Submit one above to seed the board!</p>';
+        return;
+      }
+
+      listEl.innerHTML = '';
+      data.forEach((track) => {
+        const row = document.createElement('div');
+        row.className = 'row';
+        row.innerHTML = `
+          <div>
+            <strong>${track.track_title}</strong>
+            <div class="muted">by ${track.submitted_by} · ${track.remaining_listens} listens left</div>
+          </div>
+        `;
+        const btn = document.createElement('button');
+        btn.textContent = 'Play & Earn';
+        btn.onclick = () => startTrackSession(track);
+        row.appendChild(btn);
+        listEl.appendChild(row);
+      });
+    }
+
+    function startTrackSession(track) {
+      const trackId = extractSpotifyTrackId(track.spotify_url);
+      if (!trackId) {
+        alert('Invalid Spotify track URL.');
+        return;
+      }
+
+      activeTrack = track;
+      secondsListened = 0;
+      creditClaimedForTrack = false;
+      document.getElementById('timerDisplay').textContent = '0';
+      document.getElementById('claimBtn').disabled = true;
+      document.getElementById('nowPlayingLabel').textContent = `Playing: ${track.track_title} (submitted by ${track.submitted_by})`;
+
+      document.getElementById('embedContainer').innerHTML = `
+        <iframe
+          style="border-radius:12px"
+          src="https://open.spotify.com/embed/track/${trackId}?utm_source=generator&theme=0"
+          width="100%"
+          height="152"
+          frameBorder="0"
+          allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+          loading="lazy">
+        </iframe>
+      `;
+
+      clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        if (document.hidden) return;
+        secondsListened += 1;
+        document.getElementById('timerDisplay').textContent = String(secondsListened);
+        if (secondsListened >= LISTEN_GOAL && !creditClaimedForTrack && currentUser) {
+          document.getElementById('claimBtn').disabled = false;
+        }
+      }, 1000);
+    }
+
+    document.getElementById('loginBtn').onclick = async () => {
+      const handle = document.getElementById('usernameInput').value.trim();
+      if (!handle) return;
+
+      let { data: existing } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('username', handle)
+        .maybeSingle();
+
+      if (!existing) {
+        const { data: created, error } = await supabase
+          .from('profiles')
+          .insert([{ username: handle, credits: 3 }])
+          .select()
+          .single();
+        if (error) {
+          document.getElementById('userStatus').textContent = 'Error: ' + error.message;
+          return;
+        }
+        existing = created;
+      }
+
+      currentUser = existing;
+      document.getElementById('userStatus').textContent = `Signed in as ${existing.username}`;
+      document.getElementById('creditCount').textContent = existing.credits;
+    };
+
+    document.getElementById('claimBtn').onclick = async () => {
+      if (!currentUser || !activeTrack || creditClaimedForTrack || secondsListened < LISTEN_GOAL) return;
+      creditClaimedForTrack = true;
+      document.getElementById('claimBtn').disabled = true;
+
+      await supabase
+        .from('profiles')
+        .update({ credits: currentUser.credits + 1 })
+        .eq('id', currentUser.id);
+
+      const nextListens = Math.max(0, activeTrack.remaining_listens - 1);
+      await supabase
+        .from('tracks')
+        .update({ remaining_listens: nextListens })
+        .eq('id', activeTrack.id);
+
+      await refreshUser();
+      await loadQueue();
+      alert('+1 Credit claimed!');
+    };
+
+    document.getElementById('submitTrackBtn').onclick = async () => {
+      const msgEl = document.getElementById('submitMsg');
+      if (!currentUser) {
+        msgEl.textContent = 'Enter a handle and load your profile first.';
+        return;
+      }
+      await refreshUser();
+      if (currentUser.credits < 2) {
+        msgEl.textContent = 'You need at least 2 credits to queue a track.';
+        return;
+      }
+
+      const title = document.getElementById('trackTitleInput').value.trim();
+      const url = document.getElementById('spotifyUrlInput').value.trim();
+      if (!title || !extractSpotifyTrackId(url)) {
+        msgEl.textContent = 'Add a track title and a valid open.spotify.com/track/... link.';
+        return;
+      }
+
+      const { error: insertErr } = await supabase.from('tracks').insert([
+        {
+          submitted_by: currentUser.username,
+          spotify_url: url,
+          track_title: title,
+          remaining_listens: 3
+        }
+      ]);
+      if (insertErr) {
+        msgEl.textContent = 'Error submitting track: ' + insertErr.message;
+        return;
+      }
+
+      await supabase
+        .from('profiles')
+        .update({ credits: currentUser.credits - 2 })
+        .eq('id', currentUser.id);
+
+      await refreshUser();
+      await loadQueue();
+      document.getElementById('trackTitleInput').value = '';
+      document.getElementById('spotifyUrlInput').value = '';
+      msgEl.textContent = 'Track added to the queue!';
+    };
+
+    loadQueue();
+  </script>
+</body>
 </html>
