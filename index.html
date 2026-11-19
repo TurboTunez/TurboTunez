@@ -7,16 +7,35 @@
   <style>
     * { box-sizing: border-box; }
     body { font-family: system-ui, -apple-system, sans-serif; background: #0b0b0f; color: #f4f4f6; margin: 0; padding: 0 16px 48px; }
-    .wrap { max-width: 780px; margin: 0 auto; }
+    .wrap { max-width: 780px; margin: 0 auto; position: relative; z-index: 1; }
+
+    /* Fullscreen Lava Lamp Background Video */
+    .bg-video {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: -2;
+      pointer-events: none;
+    }
+
+    .bg-scrim {
+      position: fixed;
+      inset: 0;
+      background: rgba(11, 11, 15, 0.68);
+      z-index: -1;
+      pointer-events: none;
+    }
 
     /* Top Sticky Header & Navigation */
     .top-banner {
       position: sticky;
       top: 0;
       z-index: 20;
-      background: rgba(16, 16, 22, 0.96);
-      backdrop-filter: blur(8px);
-      border-bottom: 1px solid #282836;
+      background: rgba(16, 16, 22, 0.86);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
       padding: 12px 18px;
       margin: 0 -16px 24px;
     }
@@ -50,13 +69,13 @@
       font-weight: 600;
       cursor: pointer;
     }
-    .nav-btn:hover { color: #fff; background: #1e1e28; }
-    .nav-btn.active { color: #fff; background: #22222f; border-color: #363649; }
+    .nav-btn:hover { color: #fff; background: rgba(255, 255, 255, 0.07); }
+    .nav-btn.active { color: #fff; background: rgba(255, 255, 255, 0.11); border-color: rgba(255, 255, 255, 0.16); }
 
     .banner-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     .credit-badge {
-      background: rgba(29, 185, 84, 0.14);
-      border: 1px solid rgba(29, 185, 84, 0.45);
+      background: rgba(29, 185, 84, 0.16);
+      border: 1px solid rgba(29, 185, 84, 0.48);
       color: #6ef29b;
       padding: 6px 12px;
       border-radius: 999px;
@@ -64,30 +83,37 @@
       font-weight: 700;
     }
     .user-pill {
-      background: #22222e;
+      background: rgba(34, 34, 46, 0.85);
       padding: 6px 12px;
       border-radius: 999px;
       font-size: 13px;
       color: #d6d6e2;
     }
 
-    .card { background: #16161d; border: 1px solid #282834; border-radius: 14px; padding: 20px; margin-bottom: 18px; }
+    .card {
+      background: rgba(22, 22, 29, 0.86);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      border-radius: 14px;
+      padding: 20px;
+      margin-bottom: 18px;
+    }
     h1 { margin: 0 0 8px; font-size: 26px; }
     h2 { margin: 0 0 12px; font-size: 18px; }
     h3 { margin: 14px 0 6px; font-size: 15px; color: #e2e2ee; }
     label { display: block; font-size: 13px; font-weight: 600; color: #cfcfe0; margin: 10px 0 6px; }
     input, button { padding: 10px 14px; border-radius: 8px; border: 1px solid #353545; font-size: 14px; }
-    input { background: #101015; color: #fff; margin-right: 8px; margin-bottom: 8px; }
+    input { background: rgba(16, 16, 21, 0.9); color: #fff; margin-right: 8px; margin-bottom: 8px; }
     button { background: #1db954; color: #000; font-weight: 700; border: none; cursor: pointer; transition: opacity 0.15s; }
     button:hover:not(:disabled) { opacity: 0.9; }
     button:disabled { opacity: 0.35; cursor: not-allowed; }
-    .btn-secondary { background: #262633; color: #f4f4f6; border: 1px solid #38384a; }
+    .btn-secondary { background: rgba(38, 38, 51, 0.9); color: #f4f4f6; border: 1px solid #38384a; }
     .btn-active-track { background: rgba(29, 185, 84, 0.16); color: #6ef29b; border: 1px solid rgba(29, 185, 84, 0.45); opacity: 1 !important; }
     .btn-sm { padding: 6px 12px; font-size: 13px; }
 
     /* Budget Selector Box */
     .budget-box {
-      background: #111117;
+      background: rgba(17, 17, 23, 0.85);
       border: 1px solid #2a2a38;
       border-radius: 12px;
       padding: 14px;
@@ -118,10 +144,10 @@
       font-size: 13px;
     }
 
-    .row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid #242430; flex-wrap: wrap; }
+    .row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.07); flex-wrap: wrap; }
     .row:last-child { border-bottom: none; }
     .row-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-    .muted { color: #9c9cb0; font-size: 13px; }
+    .muted { color: #b0b0c4; font-size: 13px; }
     .status-live { color: #6ef29b; font-weight: 600; }
     .status-paused { color: #f5b942; font-weight: 600; }
     .error-text { color: #ff6b6b; font-size: 13px; }
@@ -131,6 +157,12 @@
   </style>
 </head>
 <body>
+
+  <!-- Background Video -->
+  <video class="bg-video" autoplay loop muted playsinline>
+    <source src="backgroundtunez.mp4" type="video/mp4" />
+  </video>
+  <div class="bg-scrim"></div>
 
   <!-- Top Sticky Header -->
   <div class="top-banner">
