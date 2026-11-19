@@ -50,7 +50,6 @@
     }
 
     .card { background: #16161d; border: 1px solid #282834; border-radius: 14px; padding: 20px; margin-bottom: 18px; }
-    h1 { margin: 0 0 6px; font-size: 28px; }
     h2 { margin: 0 0 12px; font-size: 18px; }
     input, button { padding: 10px 14px; border-radius: 8px; border: 1px solid #353545; font-size: 14px; }
     input { background: #101015; color: #fff; margin-right: 8px; margin-bottom: 8px; }
@@ -63,6 +62,8 @@
     .row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid #242430; }
     .row:last-child { border-bottom: none; }
     .muted { color: #9c9cb0; font-size: 13px; }
+    .status-live { color: #6ef29b; font-weight: 600; }
+    .status-paused { color: #f5b942; font-weight: 600; }
     .hidden { display: none !important; }
   </style>
 </head>
@@ -85,7 +86,7 @@
     <!-- Sign-In Card (auto-hides once signed in) -->
     <div id="authCard" class="card">
       <h2>Sign In or Create Free Listener Handle</h2>
-      <p class="muted" style="margin-top:0;">New handles start with <strong>3 free credits</strong>. No password required.</p>
+      <p class="muted" style="margin-top:0;">New handles start with <strong>3 free credits</strong>. Stay logged into Spotify in your browser for full-length track playback.</p>
       <div style="display:flex; flex-wrap:wrap; align-items:center;">
         <input id="usernameInput" placeholder="Enter your artist/listener handle" style="min-width:240px;" />
         <button id="loginBtn">Continue</button>
@@ -96,12 +97,14 @@
     <!-- Active Player Card -->
     <div class="card">
       <h2>Active Listening Player</h2>
-      <p id="nowPlayingLabel" class="muted">Pick a track from the Live Queue below, hit play on Spotify, and listen for 45s to earn +1 credit.</p>
+      <p id="nowPlayingLabel" class="muted">Pick a track from the Live Queue below, then press Play inside the Spotify player.</p>
       <div id="embedContainer"></div>
       <div style="margin-top:14px; display:flex; align-items:center; flex-wrap:wrap; gap:12px;">
-        <span>Listen timer: <strong id="timerDisplay">0</strong> / 45s</span>
+        <span>Verified play time: <strong id="timerDisplay">0</strong> / 28s</span>
+        <span id="playStateBadge" class="muted">Waiting for playback...</span>
         <button id="claimBtn" disabled>Claim +1 Credit</button>
       </div>
+      <p class="muted" style="margin:10px 0 0;">Tip: Make sure you're logged into Spotify in this browser to hear full tracks instead of 30s previews.</p>
     </div>
 
     <!-- Submit Track Card -->
@@ -122,6 +125,9 @@
     </div>
   </div>
 
+  <!-- Spotify Official Embed IFrame API -->
+  <script src="https://open.spotify.com/embed/iframe-api/v1" async></script>
+
   <script type="module">
     import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -130,17 +136,78 @@
     const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
     const STORAGE_KEY = 'turbo_tunez_handle';
-    const LISTEN_GOAL = 45;
+    const LISTEN_GOAL = 28; // 28s works cleanly for both full Spotify Premium streams & 30s fallback previews
 
     let currentUser = null;
     let activeTrack = null;
     let secondsListened = 0;
-    let timerInterval = null;
+    let isActuallyPlaying = false;
+    let lastTickMs = null;
     let creditClaimedForTrack = false;
+    let spotifyApi = null;
+    let embedController = null;
+    let pendingUri = null;
 
     function extractSpotifyTrackId(url) {
       const match = url.match(/track\/([a-zA-Z0-9]+)/);
       return match ? match[1] : null;
+    }
+
+    // Hook into Spotify's official IFrame API so timer only counts real playback
+    window.onSpotifyIframeApiReady = (IFrameAPI) => {
+      spotifyApi = IFrameAPI;
+      if (pendingUri) {
+        mountSpotifyController(pendingUri);
+        pendingUri = null;
+      }
+    };
+
+    function mountSpotifyController(uri) {
+      const container = document.getElementById('embedContainer');
+      container.innerHTML = '<div id="spotifyEmbedTarget"></div>';
+      const target = document.getElementById('spotifyEmbedTarget');
+
+      spotifyApi.createController(
+        target,
+        { uri, width: '100%', height: '152' },
+        (controller) => {
+          embedController = controller;
+          controller.addListener('playback_update', (e) => {
+            const data = e.data;
+            const badge = document.getElementById('playStateBadge');
+
+            if (data.isPaused) {
+              isActuallyPlaying = false;
+              lastTickMs = null;
+              badge.textContent = 'Paused — press Play to count';
+              badge.className = 'status-paused';
+            } else {
+              const now = Date.now();
+              if (!isActuallyPlaying) {
+                isActuallyPlaying = true;
+                lastTickMs = now;
+              } else if (lastTickMs && !document.hidden) {
+                const deltaSec = (now - lastTickMs) / 1000;
+                // Only count realistic real-time playback steps (ignores scrubbing ahead)
+                if (deltaSec > 0 && deltaSec < 2.5) {
+                  secondsListened += deltaSec;
+                }
+                lastTickMs = now;
+              }
+
+              const shownSec = Math.min(LISTEN_GOAL, Math.floor(secondsListened));
+              document.getElementById('timerDisplay').textContent = String(shownSec);
+              badge.textContent = 'Playing...';
+              badge.className = 'status-live';
+
+              if (secondsListened >= LISTEN_GOAL && !creditClaimedForTrack && currentUser) {
+                document.getElementById('claimBtn').disabled = false;
+                badge.textContent = 'Goal reached! Claim your credit';
+              }
+            }
+          });
+        }
+      );
     }
 
     function updateAuthUI() {
@@ -271,32 +338,24 @@
 
       activeTrack = track;
       secondsListened = 0;
+      isActuallyPlaying = false;
+      lastTickMs = null;
       creditClaimedForTrack = false;
+
       document.getElementById('timerDisplay').textContent = '0';
       document.getElementById('claimBtn').disabled = true;
-      document.getElementById('nowPlayingLabel').textContent = `Now Playing: ${track.track_title} (by @${track.submitted_by})`;
+      document.getElementById('playStateBadge').textContent = 'Press Play inside Spotify player';
+      document.getElementById('playStateBadge').className = 'status-paused';
+      document.getElementById('nowPlayingLabel').textContent = `Loaded: ${track.track_title} (by @${track.submitted_by})`;
 
-      document.getElementById('embedContainer').innerHTML = `
-        <iframe
-          style="border-radius:12px"
-          src="https://open.spotify.com/embed/track/${trackId}?utm_source=generator&theme=0"
-          width="100%"
-          height="152"
-          frameBorder="0"
-          allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-          loading="lazy">
-        </iframe>
-      `;
-
-      clearInterval(timerInterval);
-      timerInterval = setInterval(() => {
-        if (document.hidden) return;
-        secondsListened += 1;
-        document.getElementById('timerDisplay').textContent = String(secondsListened);
-        if (secondsListened >= LISTEN_GOAL && !creditClaimedForTrack && currentUser) {
-          document.getElementById('claimBtn').disabled = false;
-        }
-      }, 1000);
+      const uri = `spotify:track:${trackId}`;
+      if (embedController) {
+        embedController.loadUri(uri);
+      } else if (spotifyApi) {
+        mountSpotifyController(uri);
+      } else {
+        pendingUri = uri;
+      }
     }
 
     document.getElementById('loginBtn').onclick = () => {
