@@ -75,6 +75,7 @@
     h1 { margin: 0 0 8px; font-size: 26px; }
     h2 { margin: 0 0 12px; font-size: 18px; }
     h3 { margin: 14px 0 6px; font-size: 15px; color: #e2e2ee; }
+    label { display: block; font-size: 13px; font-weight: 600; color: #cfcfe0; margin: 10px 0 6px; }
     input, button { padding: 10px 14px; border-radius: 8px; border: 1px solid #353545; font-size: 14px; }
     input { background: #101015; color: #fff; margin-right: 8px; margin-bottom: 8px; }
     button { background: #1db954; color: #000; font-weight: 700; border: none; cursor: pointer; transition: opacity 0.15s; }
@@ -82,6 +83,39 @@
     button:disabled { opacity: 0.35; cursor: not-allowed; }
     .btn-secondary { background: #262633; color: #f4f4f6; border: 1px solid #38384a; }
     .btn-sm { padding: 6px 12px; font-size: 13px; }
+
+    /* Budget Selector Box */
+    .budget-box {
+      background: #111117;
+      border: 1px solid #2a2a38;
+      border-radius: 12px;
+      padding: 14px;
+      margin: 12px 0 16px;
+    }
+    .preset-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+    .preset-btn {
+      background: #1e1e29;
+      color: #e4e4f0;
+      border: 1px solid #343446;
+      padding: 6px 12px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .preset-btn.selected {
+      background: rgba(29, 185, 84, 0.2);
+      border-color: #1db954;
+      color: #6ef29b;
+    }
+    .budget-summary {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding-top: 10px;
+      border-top: 1px solid #232330;
+      font-size: 13px;
+    }
 
     .row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid #242430; }
     .row:last-child { border-bottom: none; }
@@ -157,17 +191,41 @@
       </div>
     </section>
 
-    <!-- PAGE 2: PROMOTE TRACK -->
+    <!-- PAGE 2: PROMOTE TRACK (Campaign Budget Configurator) -->
     <section id="page-promote" class="hidden">
       <div class="card">
-        <h1>Promote Your Spotify Track</h1>
-        <p class="muted">Spend <strong>2 credits</strong> to add your track to the front of the Turbo Tunez queue for <strong>3 unique verified listens</strong>.</p>
-        <div style="display:flex; flex-direction:column; max-width:440px; margin-top:14px;">
-          <input id="trackTitleInput" placeholder="Artist - Song Title (e.g. Cade Saw Massacre - Brooklyn)" />
-          <input id="spotifyUrlInput" placeholder="https://open.spotify.com/track/..." />
-          <div>
-            <button id="submitTrackBtn">Queue Track (2 Credits)</button>
+        <h1>Launch a Song Campaign</h1>
+        <p class="muted" style="margin-top:0;">Configure your campaign budget just like a repost/listen exchange: <strong>1 Credit = 1 Verified Listen</strong> (Minimum budget: <strong>3 Credits</strong>).</p>
+
+        <div style="max-width:480px; margin-top:14px;">
+          <label for="trackTitleInput">Artist & Track Title</label>
+          <input id="trackTitleInput" placeholder="e.g. Cade Saw Massacre - Brooklyn" style="width:100%;" />
+
+          <label for="spotifyUrlInput">Spotify Track Link</label>
+          <input id="spotifyUrlInput" placeholder="https://open.spotify.com/track/..." style="width:100%;" />
+
+          <div class="budget-box">
+            <label style="margin-top:0;">Set Campaign Budget (Minimum 3 Credits)</label>
+            <div class="preset-row">
+              <button type="button" class="preset-btn selected" data-budget="3">3 Credits (Min)</button>
+              <button type="button" class="preset-btn" data-budget="5">5 Credits</button>
+              <button type="button" class="preset-btn" data-budget="10">10 Credits</button>
+              <button type="button" class="preset-btn" data-budget="25">25 Credits</button>
+              <button type="button" id="maxBudgetBtn" class="preset-btn">Max Balance</button>
+            </div>
+
+            <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+              <input id="budgetInput" type="number" min="3" step="1" value="3" style="width:120px; margin-bottom:0;" />
+              <span class="muted">credits allocated</span>
+            </div>
+
+            <div class="budget-summary">
+              <span>Target Reach: <strong id="targetListensDisplay" style="color:#6ef29b;">3 Verified Listens</strong></span>
+              <span class="muted">Your Balance: <strong id="promoteBalanceDisplay">0</strong> credits</span>
+            </div>
           </div>
+
+          <button id="submitTrackBtn">Launch Campaign (3 Credits)</button>
         </div>
         <p id="submitMsg" class="muted" style="margin-bottom:0;"></p>
       </div>
@@ -176,8 +234,8 @@
     <!-- PAGE 3: MY TRACKS -->
     <section id="page-mytracks" class="hidden">
       <div class="card">
-        <h1>My Submitted Tracks</h1>
-        <p class="muted">Track how many listens remain on the songs you've promoted.</p>
+        <h1>My Promoted Campaigns</h1>
+        <p class="muted">Monitor remaining listen budget on your queued tracks or top up active campaigns (+3 credits = +3 listens).</p>
         <div id="myTracksList" class="muted">Sign in to view your submitted tracks.</div>
       </div>
     </section>
@@ -186,12 +244,12 @@
     <section id="page-rules" class="hidden">
       <div class="card">
         <h1>How Turbo Tunez Works</h1>
-        <h3>1. Earn Credits by Listening</h3>
+        <h3>1. 1 Credit = 1 Verified Listen</h3>
         <p class="muted">Pick any active track on the Home queue and press Play in the Spotify player. Once 28 seconds of real playback is verified, click <strong>Claim +1 Credit</strong>.</p>
-        <h3>2. One Listen Per Song Per User</h3>
-        <p class="muted">To keep promotion real and prevent credit farming, every account can only earn credit from a specific track <strong>once</strong>, and you cannot farm credits on your own uploads.</p>
-        <h3>3. Queue Your Own Releases</h3>
-        <p class="muted">Head to <strong>Promote Track</strong>, paste your Spotify track URL, and spend 2 credits to receive 3 unique listens from other artists and listeners.</p>
+        <h3>2. Set Your Own Campaign Budgets (3 Credit Minimum)</h3>
+        <p class="muted">On <strong>Promote Track</strong>, choose how many credits to put behind your track (minimum 3 credits). Every credit buys 1 unique listener—so a 10-credit campaign delivers 10 unique listens.</p>
+        <h3>3. One Listen Per Song Per User</h3>
+        <p class="muted">Every account can only earn credit from a specific track <strong>once</strong>, and you cannot earn credits from your own uploads.</p>
         <h3>4. Full-Length Playback Tip</h3>
         <p class="muted">Sign into <a href="https://open.spotify.com" target="_blank" rel="noopener" style="color:#1db954;">open.spotify.com</a> in this browser so Spotify plays full tracks instead of 30-second previews.</p>
       </div>
@@ -210,9 +268,10 @@
 
     const STORAGE_KEY = 'turbo_tunez_session_v2';
     const LISTEN_GOAL = 28;
+    const MIN_CAMPAIGN_BUDGET = 3;
 
     let currentUser = null;
-    let authMode = 'signin'; // 'signin' | 'signup'
+    let authMode = 'signin';
     let activeTrack = null;
     let listenedTrackIds = new Set();
     let secondsListened = 0;
@@ -223,7 +282,6 @@
     let embedController = null;
     let pendingUri = null;
 
-    // Hash password with SHA-256 in browser so plaintext passwords are never stored
     async function hashPassword(password) {
       const encoder = new TextEncoder();
       const data = encoder.encode('tt_salt_' + password);
@@ -238,6 +296,41 @@
       return match ? match[1] : null;
     }
 
+    // Budget UI synchronization
+    function syncBudgetUI(val) {
+      const parsed = Math.max(MIN_CAMPAIGN_BUDGET, Math.floor(Number(val) || MIN_CAMPAIGN_BUDGET));
+      document.getElementById('budgetInput').value = parsed;
+      document.getElementById('targetListensDisplay').textContent = `${parsed} Verified Listens`;
+      document.getElementById('submitTrackBtn').textContent = `Launch Campaign (${parsed} Credits)`;
+
+      document.querySelectorAll('.preset-btn[data-budget]').forEach((btn) => {
+        btn.classList.toggle('selected', Number(btn.dataset.budget) === parsed);
+      });
+    }
+
+    document.querySelectorAll('.preset-btn[data-budget]').forEach((btn) => {
+      btn.onclick = () => syncBudgetUI(btn.dataset.budget);
+    });
+
+    document.getElementById('maxBudgetBtn').onclick = () => {
+      const bal = currentUser ? currentUser.credits : MIN_CAMPAIGN_BUDGET;
+      syncBudgetUI(Math.max(MIN_CAMPAIGN_BUDGET, bal));
+    };
+
+    document.getElementById('budgetInput').addEventListener('input', (e) => {
+      const raw = Math.floor(Number(e.target.value) || 0);
+      const displayVal = raw > 0 ? raw : MIN_CAMPAIGN_BUDGET;
+      document.getElementById('targetListensDisplay').textContent = `${displayVal} Verified Listens`;
+      document.getElementById('submitTrackBtn').textContent = `Launch Campaign (${displayVal} Credits)`;
+      document.querySelectorAll('.preset-btn[data-budget]').forEach((btn) => {
+        btn.classList.toggle('selected', Number(btn.dataset.budget) === raw);
+      });
+    });
+
+    document.getElementById('budgetInput').addEventListener('blur', (e) => {
+      syncBudgetUI(e.target.value);
+    });
+
     // Multi-page navigation
     function navigateTo(pageName) {
       ['home', 'promote', 'mytracks', 'rules'].forEach((p) => {
@@ -248,6 +341,9 @@
       });
       if (pageName === 'mytracks') loadMyTracks();
       if (pageName === 'home') loadQueue();
+      if (pageName === 'promote') {
+        document.getElementById('promoteBalanceDisplay').textContent = currentUser ? currentUser.credits : '0';
+      }
     }
 
     document.getElementById('brandHomeLink').onclick = (e) => {
@@ -260,7 +356,7 @@
       btn.onclick = () => navigateTo(btn.dataset.page);
     });
 
-    // Auth mode toggle (Sign In vs Create Account)
+    // Auth mode toggle
     function setAuthMode(mode) {
       authMode = mode;
       const isSignUp = mode === 'signup';
@@ -283,6 +379,7 @@
       const bannerSignInBtn = document.getElementById('bannerSignInBtn');
       const bannerSignOutBtn = document.getElementById('bannerSignOutBtn');
       const creditCount = document.getElementById('creditCount');
+      const promoteBal = document.getElementById('promoteBalanceDisplay');
 
       if (currentUser) {
         authCard.classList.add('hidden');
@@ -291,12 +388,14 @@
         bannerSignInBtn.classList.add('hidden');
         bannerSignOutBtn.classList.remove('hidden');
         creditCount.textContent = currentUser.credits;
+        promoteBal.textContent = currentUser.credits;
       } else {
         authCard.classList.remove('hidden');
         signedInPill.classList.add('hidden');
         bannerSignInBtn.classList.remove('hidden');
         bannerSignOutBtn.classList.add('hidden');
         creditCount.textContent = '0';
+        promoteBal.textContent = '0';
       }
     }
 
@@ -362,7 +461,6 @@
           statusEl.textContent = 'No account found with that handle. Click "Create Account" above.';
           return;
         }
-        // Allow claiming legacy passwordless MVP accounts on first login
         if (!existing.password_hash) {
           const { data: upgraded } = await supabase
             .from('profiles')
@@ -474,6 +572,7 @@
         .from('tracks')
         .select('*')
         .gt('remaining_listens', 0)
+        .order('remaining_listens', { ascending: false })
         .order('created_at', { ascending: false });
 
       const listEl = document.getElementById('queueList');
@@ -482,7 +581,7 @@
         return;
       }
       if (!data || data.length === 0) {
-        listEl.innerHTML = '<p class="muted">No tracks in queue yet. Go to Promote Track to add one!</p>';
+        listEl.innerHTML = '<p class="muted">No active campaigns in queue yet. Go to Promote Track to launch one!</p>';
         return;
       }
 
@@ -496,13 +595,13 @@
         row.innerHTML = `
           <div>
             <strong>${track.track_title}</strong>
-            <div class="muted">Queued by @${track.submitted_by} · ${track.remaining_listens} listens left</div>
+            <div class="muted">Queued by @${track.submitted_by} · Budget left: ${track.remaining_listens} ${track.remaining_listens === 1 ? 'listen' : 'listens'}</div>
           </div>
         `;
 
         const btn = document.createElement('button');
         if (isOwnTrack) {
-          btn.textContent = 'Your Track';
+          btn.textContent = 'Your Campaign';
           btn.className = 'btn-secondary';
           btn.disabled = true;
         } else if (alreadyListened) {
@@ -510,7 +609,7 @@
           btn.className = 'btn-secondary';
           btn.disabled = true;
         } else {
-          btn.textContent = 'Play & Earn';
+          btn.textContent = 'Play & Earn (+1)';
           btn.onclick = () => startTrackSession(track);
         }
 
@@ -519,10 +618,33 @@
       });
     }
 
+    async function topUpCampaign(trackId, currentRemaining, addCredits) {
+      if (!currentUser) return;
+      await refreshUser();
+      if (currentUser.credits < addCredits) {
+        alert(`You need at least ${addCredits} credits to add that boost.`);
+        return;
+      }
+
+      await supabase
+        .from('tracks')
+        .update({ remaining_listens: currentRemaining + addCredits })
+        .eq('id', trackId);
+
+      await supabase
+        .from('profiles')
+        .update({ credits: currentUser.credits - addCredits })
+        .eq('id', currentUser.id);
+
+      await refreshUser();
+      await loadMyTracks();
+      await loadQueue();
+    }
+
     async function loadMyTracks() {
       const box = document.getElementById('myTracksList');
       if (!currentUser) {
-        box.textContent = 'Sign in at the top to see your submitted tracks.';
+        box.textContent = 'Sign in at the top to see your promoted campaigns.';
         return;
       }
       const { data, error } = await supabase
@@ -536,7 +658,7 @@
         return;
       }
       if (!data || data.length === 0) {
-        box.innerHTML = '<p class="muted">You haven’t queued any tracks yet. Click <strong>Promote Track</strong> in the top bar.</p>';
+        box.innerHTML = '<p class="muted">You haven’t launched any campaigns yet. Click <strong>Promote Track</strong> in the top bar.</p>';
         return;
       }
 
@@ -544,13 +666,22 @@
       data.forEach((t) => {
         const row = document.createElement('div');
         row.className = 'row';
-        const status = t.remaining_listens > 0 ? `${t.remaining_listens} listens remaining` : 'Completed ✓';
+        const status = t.remaining_listens > 0
+          ? `Active · ${t.remaining_listens} ${t.remaining_listens === 1 ? 'listen' : 'listens'} remaining`
+          : 'Budget Completed ✓';
         row.innerHTML = `
           <div>
             <strong>${t.track_title}</strong>
             <div class="muted">${status}</div>
           </div>
         `;
+
+        const boostBtn = document.createElement('button');
+        boostBtn.textContent = '+3 Credits (+3 Listens)';
+        boostBtn.className = 'btn-secondary btn-sm';
+        boostBtn.onclick = () => topUpCampaign(t.id, t.remaining_listens, 3);
+        row.appendChild(boostBtn);
+
         box.appendChild(row);
       });
     }
@@ -613,7 +744,6 @@
       creditClaimedForTrack = true;
       document.getElementById('claimBtn').disabled = true;
 
-      // Record unique (user_id, track_id) listen in Supabase so this user can never claim this song again
       const { error: listenErr } = await supabase
         .from('listens')
         .insert([{ user_id: currentUser.id, track_id: activeTrack.id }]);
@@ -650,10 +780,18 @@
         msgEl.textContent = 'Sign in at the top first.';
         return;
       }
-      await refreshUser();
-      if (currentUser.credits < 2) {
+
+      const budget = Math.floor(Number(document.getElementById('budgetInput').value) || 0);
+      if (budget < MIN_CAMPAIGN_BUDGET) {
         msgEl.className = 'error-text';
-        msgEl.textContent = 'You need at least 2 credits to queue a track. Listen to tracks on Home first!';
+        msgEl.textContent = `Minimum campaign budget is ${MIN_CAMPAIGN_BUDGET} credits (${MIN_CAMPAIGN_BUDGET} listens).`;
+        return;
+      }
+
+      await refreshUser();
+      if (currentUser.credits < budget) {
+        msgEl.className = 'error-text';
+        msgEl.textContent = `You have ${currentUser.credits} credits, which isn't enough for a ${budget}-credit budget. Listen to tracks on Home to earn more!`;
         return;
       }
 
@@ -670,26 +808,27 @@
           submitted_by: currentUser.username,
           spotify_url: url,
           track_title: title,
-          remaining_listens: 3
+          remaining_listens: budget
         }
       ]);
       if (insertErr) {
         msgEl.className = 'error-text';
-        msgEl.textContent = 'Error submitting track: ' + insertErr.message;
+        msgEl.textContent = 'Error launching campaign: ' + insertErr.message;
         return;
       }
 
       await supabase
         .from('profiles')
-        .update({ credits: currentUser.credits - 2 })
+        .update({ credits: currentUser.credits - budget })
         .eq('id', currentUser.id);
 
       await refreshUser();
       await loadQueue();
       document.getElementById('trackTitleInput').value = '';
       document.getElementById('spotifyUrlInput').value = '';
+      syncBudgetUI(MIN_CAMPAIGN_BUDGET);
       msgEl.className = 'success-text';
-      msgEl.textContent = 'Track added to the Turbo Tunez queue!';
+      msgEl.textContent = `Campaign live! ${budget} credits allocated for ${budget} verified listens.`;
     };
 
     // Restore saved session on load
