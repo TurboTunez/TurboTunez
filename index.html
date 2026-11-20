@@ -98,12 +98,16 @@
       padding: 20px;
       margin-bottom: 18px;
     }
+    .card-grind {
+      border-color: rgba(29, 185, 84, 0.32);
+      background: linear-gradient(180deg, rgba(24, 32, 28, 0.88), rgba(22, 22, 29, 0.88));
+    }
     h1 { margin: 0 0 8px; font-size: 26px; }
     h2 { margin: 0 0 12px; font-size: 18px; }
     h3 { margin: 14px 0 6px; font-size: 15px; color: #e2e2ee; }
     label { display: block; font-size: 13px; font-weight: 600; color: #cfcfe0; margin: 10px 0 6px; }
-    input, button { padding: 10px 14px; border-radius: 8px; border: 1px solid #353545; font-size: 14px; }
-    input[type="text"], input[type="password"], input[type="number"], input:not([type]) {
+    input, select, button { padding: 10px 14px; border-radius: 8px; border: 1px solid #353545; font-size: 14px; }
+    input[type="text"], input[type="password"], input[type="number"], input:not([type]), select {
       background: rgba(16, 16, 21, 0.9);
       color: #fff;
       margin-right: 8px;
@@ -113,6 +117,7 @@
     button:hover:not(:disabled) { opacity: 0.9; }
     button:disabled { opacity: 0.35; cursor: not-allowed; }
     .btn-sc { background: #ff5500; color: #fff; }
+    .btn-danger { background: rgba(255, 85, 85, 0.18); color: #ff8585; border: 1px solid rgba(255, 85, 85, 0.45); }
     .btn-secondary { background: rgba(38, 38, 51, 0.9); color: #f4f4f6; border: 1px solid #38384a; }
     .btn-loop-on {
       background: rgba(29, 185, 84, 0.22);
@@ -136,6 +141,7 @@
     }
     .plat-spotify { background: rgba(29, 185, 84, 0.18); color: #6ef29b; border: 1px solid rgba(29, 185, 84, 0.45); }
     .plat-soundcloud { background: rgba(255, 85, 0, 0.18); color: #ff8c52; border: 1px solid rgba(255, 85, 0, 0.45); }
+    .plat-label { background: rgba(168, 130, 255, 0.18); color: #cbb6ff; border: 1px solid rgba(168, 130, 255, 0.45); }
 
     /* Stats Strip */
     .stats-strip {
@@ -223,6 +229,14 @@
       font-size: 13px;
     }
 
+    .admin-box {
+      background: rgba(168, 130, 255, 0.08);
+      border: 1px dashed rgba(168, 130, 255, 0.4);
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 14px;
+    }
+
     .row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.07); flex-wrap: wrap; }
     .row:last-child { border-bottom: none; }
     .row-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
@@ -250,6 +264,7 @@
         <a id="brandHomeLink" class="brand-link" href="#home">Turbo <span>Tunez</span></a>
         <nav class="nav-links">
           <button class="nav-btn active" data-page="home">Home</button>
+          <button class="nav-btn" data-page="needcredits">Need Credits?</button>
           <button class="nav-btn" data-page="promote">Promote Track</button>
           <button class="nav-btn" data-page="mytracks">My Tracks & Stats</button>
           <button class="nav-btn" data-page="rules">Rules & FAQ</button>
@@ -274,39 +289,40 @@
       <h2 id="authHeading">Sign In to Turbo Tunez</h2>
       <p id="authSubtext" class="muted" style="margin-top:0;">Enter your artist/listener handle and password.</p>
       <div style="display:flex; flex-wrap:wrap; align-items:center;">
-        <input id="usernameInput" placeholder="Handle (e.g. CadeSawMassacre)" style="min-width:210px;" />
+        <input id="usernameInput" placeholder="Handle (e.g. Edac)" style="min-width:210px;" />
         <input id="passwordInput" type="password" placeholder="Password" style="min-width:200px;" />
         <button id="authSubmitBtn">Sign In</button>
       </div>
       <p id="userStatus" class="muted" style="margin-bottom:0;"></p>
     </div>
 
-    <!-- PAGE 1: HOME (Player + Live Queue) -->
-    <section id="page-home">
-      <div class="card">
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px;">
-          <h2 style="margin:0;">Active Listening Player</h2>
-          <button id="loopToggleBtn" class="btn-secondary btn-sm" title="Keep looping the track after claiming to earn unlimited credits until budget runs out">↻ Loop Track: OFF</button>
-        </div>
-        <p id="nowPlayingLabel" class="muted">Pick a Spotify or SoundCloud track from the Live Queue below.</p>
-        <div id="embedContainer"></div>
+    <!-- SHARED ACTIVE PLAYER (Always visible on Home and Need Credits? pages) -->
+    <div id="activePlayerCard" class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px;">
+        <h2 style="margin:0;">Active Listening Player</h2>
+        <button id="loopToggleBtn" class="btn-secondary btn-sm" title="Keep looping the track after claiming to earn unlimited credits">↻ Loop Track: OFF</button>
+      </div>
+      <p id="nowPlayingLabel" class="muted">Pick a track from the <strong>Live Community Queue</strong> or the <strong>Need Credits?</strong> Label Campaign below.</p>
+      <div id="embedContainer"></div>
 
-        <!-- SoundCloud Bonus Engagement Checklist -->
-        <div id="scBonusBox" class="sc-actions-box hidden">
-          <strong style="font-size:14px; color:#ff9e6d;">SoundCloud Bonus Engagement (+1 Credit per completed action, 1x per track)</strong>
-          <p class="muted" style="margin:4px 0 8px;">Open the link on SoundCloud, perform the action on your account, then check it off to stack bonus credits alongside your listen.</p>
-          <div id="scTasksContainer"></div>
-        </div>
-
-        <div style="margin-top:14px; display:flex; align-items:center; flex-wrap:wrap; gap:12px;">
-          <span>Verified play time: <strong id="timerDisplay">0</strong> / 28s</span>
-          <span id="playStateBadge" class="muted">Waiting for playback...</span>
-          <button id="claimBtn" disabled>Claim +1 Credit</button>
-          <button id="cancelSessionBtn" class="btn-secondary btn-sm hidden">Stop / Cancel</button>
-        </div>
-        <p id="sessionFeedbackMsg" class="muted" style="margin:10px 0 0;">Turn on <strong>↻ Loop Track</strong> to keep repeating a song and earning <strong>+1 Credit per loop</strong> until its budget pool runs out.</p>
+      <!-- SoundCloud Bonus Engagement Checklist -->
+      <div id="scBonusBox" class="sc-actions-box hidden">
+        <strong style="font-size:14px; color:#ff9e6d;">SoundCloud Bonus Engagement (+1 Credit per completed action, 1x per track)</strong>
+        <p class="muted" style="margin:4px 0 8px;">Open the link on SoundCloud, perform the action on your account, then check it off to stack bonus credits alongside your listen.</p>
+        <div id="scTasksContainer"></div>
       </div>
 
+      <div style="margin-top:14px; display:flex; align-items:center; flex-wrap:wrap; gap:12px;">
+        <span>Verified play time: <strong id="timerDisplay">0</strong> / 28s</span>
+        <span id="playStateBadge" class="muted">Waiting for playback...</span>
+        <button id="claimBtn" disabled>Claim +1 Credit</button>
+        <button id="cancelSessionBtn" class="btn-secondary btn-sm hidden">Stop / Cancel</button>
+      </div>
+      <p id="sessionFeedbackMsg" class="muted" style="margin:10px 0 0;">Turn on <strong>↻ Loop Track</strong> to keep repeating a song and earning <strong>+1 Credit per loop</strong>.</p>
+    </div>
+
+    <!-- PAGE 1: HOME (Community Queue + Quick Preview of Need Credits?) -->
+    <section id="page-home">
       <div class="card">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px;">
           <h2 style="margin:0;">Live Community Queue</h2>
@@ -319,9 +335,63 @@
         </div>
         <div id="queueList" class="muted">Loading queue...</div>
       </div>
+
+      <!-- Quick Callout into Need Credits? Campaign Mode -->
+      <div class="card card-grind">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+          <div>
+            <h2 style="margin:0 0 4px;">Need Credits? — Label Campaign Grind</h2>
+            <p class="muted" style="margin:0;">Queue looking quiet? Grind unlimited credits anytime by playing & looping official label roster tracks on <strong>Spotify</strong> and <strong>SoundCloud</strong>.</p>
+          </div>
+          <button id="jumpToGrindBtn" class="btn-sm">Open Need Credits? →</button>
+        </div>
+      </div>
     </section>
 
-    <!-- PAGE 2: PROMOTE TRACK -->
+    <!-- PAGE 2: NEED CREDITS? (Always-On Label Roster Campaign Grind) -->
+    <section id="page-needcredits" class="hidden">
+      <div class="card card-grind">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px;">
+          <div>
+            <h1 style="margin:0 0 4px;">Need Credits? — Campaign Mode</h1>
+            <p class="muted" style="margin:0;">Always-on label roster rotation. Play or loop any <strong>Spotify</strong> or <strong>SoundCloud</strong> track here anytime—even when nobody else is online—to stack credits for your own releases.</p>
+          </div>
+          <div style="display:flex; gap:6px; flex-wrap:wrap;">
+            <button class="grind-filter-btn btn-sm" data-gfilter="all">All</button>
+            <button class="grind-filter-btn btn-secondary btn-sm" data-gfilter="spotify">Spotify</button>
+            <button class="grind-filter-btn btn-secondary btn-sm" data-gfilter="soundcloud">SoundCloud</button>
+          </div>
+        </div>
+
+        <!-- Admin-Only Box for Adding Permanent Label Roster Tracks (visible to Edac) -->
+        <div id="labelAdminBox" class="admin-box hidden" style="margin-top:14px;">
+          <strong style="font-size:13px; color:#cbb6ff;">Founder Roster Controls — Add Permanent "Need Credits?" Track (Costs 0 Credits)</strong>
+          <div style="display:flex; gap:6px; flex-wrap:wrap; margin:8px 0;">
+            <span class="muted" style="align-self:center;">Quick-fill roster artist:</span>
+            <button type="button" class="roster-chip-btn btn-secondary btn-sm" data-artist="Edac">Edac</button>
+            <button type="button" class="roster-chip-btn btn-secondary btn-sm" data-artist="Excape">Excape</button>
+            <button type="button" class="roster-chip-btn btn-secondary btn-sm" data-artist="Jae.trapp">Jae.trapp</button>
+            <button type="button" class="roster-chip-btn btn-secondary btn-sm" data-artist="Mistlordrx">Mistlordrx</button>
+            <button type="button" class="roster-chip-btn btn-secondary btn-sm" data-artist="KyleBoomin">KyleBoomin</button>
+          </div>
+          <div style="display:flex; flex-wrap:wrap; align-items:center;">
+            <select id="labelPlatSelect">
+              <option value="spotify">Spotify</option>
+              <option value="soundcloud">SoundCloud</option>
+            </select>
+            <input id="labelArtistInput" placeholder="Label Artist Handle" style="min-width:160px;" />
+            <input id="labelTitleInput" placeholder="Artist - Track Name" style="min-width:210px;" />
+            <input id="labelUrlInput" placeholder="Direct Spotify or SoundCloud track link" style="min-width:260px;" />
+            <button id="addLabelTrackBtn" class="btn-sm">Add to Label Pool</button>
+          </div>
+          <p id="labelAdminMsg" class="muted" style="margin:4px 0 0;"></p>
+        </div>
+
+        <div id="needCreditsList" class="muted" style="margin-top:10px;">Loading label roster...</div>
+      </div>
+    </section>
+
+    <!-- PAGE 3: PROMOTE TRACK -->
     <section id="page-promote" class="hidden">
       <div class="card">
         <h1>Launch a Song Campaign</h1>
@@ -334,7 +404,7 @@
 
         <div style="max-width:500px;">
           <label for="trackTitleInput">Artist & Track Title</label>
-          <input id="trackTitleInput" placeholder="e.g. Cade Saw Massacre - Brooklyn" style="width:100%;" />
+          <input id="trackTitleInput" placeholder="e.g. Edac - Track Name" style="width:100%;" />
 
           <label id="trackUrlLabel" for="trackUrlInput">Spotify Track Link</label>
           <input id="trackUrlInput" placeholder="https://open.spotify.com/track/..." style="width:100%;" />
@@ -380,7 +450,7 @@
       </div>
     </section>
 
-    <!-- PAGE 3: MY TRACKS & STATS -->
+    <!-- PAGE 4: MY TRACKS & STATS -->
     <section id="page-mytracks" class="hidden">
       <div class="card">
         <h1>My Campaigns & Track Stats</h1>
@@ -389,18 +459,16 @@
       </div>
     </section>
 
-    <!-- PAGE 4: RULES & FAQ -->
+    <!-- PAGE 5: RULES & FAQ -->
     <section id="page-rules" class="hidden">
       <div class="card">
         <h1>How Turbo Tunez Works</h1>
-        <h3>1. Spotify & SoundCloud Exchanges + Unlimited Loop Mode</h3>
-        <p class="muted">Play any Spotify or SoundCloud track for 28 verified seconds to earn <strong>+1 Credit</strong>. Toggle <strong>↻ Loop Track: ON</strong> in the player to automatically replay the track after claiming and earn another credit on every loop until the song's budget runs out.</p>
-        <h3>2. SoundCloud Bonus Engagement</h3>
-        <p class="muted">On SoundCloud tracks where the artist enabled bonus actions, you can also <strong>Like, Repost, and Follow</strong> on your first pass for <strong>+1 Credit per action</strong>.</p>
-        <h3>3. Real-Time Track Stats</h3>
-        <p class="muted">Every submitted song displays live counters for <strong>Plays, Likes, Reposts, and Follows</strong> right in the queue and inside your <strong>My Tracks & Stats</strong> dashboard.</p>
-        <h3>4. Custom Campaign Budgets & Top-Ups (Min 3 Credits)</h3>
-        <p class="muted">Launch any track with at least 3 credits, and click <strong>+1</strong>, <strong>+3</strong>, or <strong>+Custom</strong> anytime you earn more credits to keep your campaign running. You cannot farm credits on your own uploads.</p>
+        <h3>1. "Need Credits?" Campaign Mode Grind</h3>
+        <p class="muted">Even if nobody else is online, open <strong>Need Credits?</strong> to play and loop official label roster songs on <strong>Spotify</strong> and <strong>SoundCloud</strong>. Every 28-second verified play earns <strong>+1 Credit</strong> (with unlimited loops), which you can immediately spend on your own track promotions.</p>
+        <h3>2. Community Queue + Loop Mode</h3>
+        <p class="muted">Play any community track for 28 verified seconds to earn <strong>+1 Credit</strong>, or turn on <strong>↻ Loop Track: ON</strong> to keep looping a song until its credit pool runs dry.</p>
+        <h3>3. SoundCloud Bonus Engagement & Live Stats</h3>
+        <p class="muted">On SoundCloud tracks where bonus actions are enabled, you can also <strong>Like, Repost, and Follow</strong> on your first pass for <strong>+1 Credit per action</strong>. Every track tracks live <strong>Plays, Likes, Reposts, and Follows</strong>.</p>
       </div>
     </section>
   </div>
@@ -421,14 +489,21 @@
     const LISTEN_GOAL = 28;
     const MIN_CAMPAIGN_BUDGET = 3;
 
+    // Founder admin handles allowed to add/remove permanent "Need Credits?" label roster tracks
+    const LABEL_ADMIN_HANDLES = ['edac', 'cadesawmassacre', 'cadeloeffler'];
+
+    // Left empty so you manage all label roster tracks directly from your Edac account
+    const LABEL_ROSTER_TRACKS = [];
+
     let currentUser = null;
     let authMode = 'signin';
     let promotePlatform = 'spotify';
     let queueFilter = 'all';
+    let grindFilter = 'all';
     let activeTrack = null;
     let loopTrackEnabled = false;
     let loopCountThisSession = 0;
-    let userListenCounts = new Map(); // track_id -> number of listens by current user
+    let userListenCounts = new Map();
     let secondsListened = 0;
     let isActuallyPlaying = false;
     let lastTickMs = null;
@@ -440,6 +515,10 @@
     let pendingUri = null;
 
     let scActionState = { like: false, repost: false, follow: false };
+
+    function isAdminUser() {
+      return Boolean(currentUser && LABEL_ADMIN_HANDLES.includes(currentUser.username.toLowerCase()));
+    }
 
     async function hashPassword(password) {
       const encoder = new TextEncoder();
@@ -483,12 +562,14 @@
 
     function calculateTotalClaimableCredits() {
       if (!activeTrack) return 1;
-      let total = 1; // base 28s listen
-      // Bonus social actions apply only on the first claim for that track
+      let total = 1;
       if ((activeTrack.platform || 'spotify') === 'soundcloud' && !hasAlreadyClaimedTrackBefore(activeTrack.id)) {
         if (activeTrack.allow_like && scActionState.like) total += 1;
         if (activeTrack.allow_repost && scActionState.repost) total += 1;
         if (activeTrack.allow_follow && scActionState.follow) total += 1;
+      }
+      if (activeTrack.is_label_campaign) {
+        return total;
       }
       return Math.min(total, activeTrack.remaining_listens);
     }
@@ -532,10 +613,55 @@
       document.getElementById('scTasksContainer').innerHTML = '';
       document.getElementById('playStateBadge').textContent = 'Waiting for playback...';
       document.getElementById('playStateBadge').className = 'muted';
-      document.getElementById('nowPlayingLabel').textContent = 'Pick a Spotify or SoundCloud track from the Live Queue below.';
+      document.getElementById('nowPlayingLabel').innerHTML = 'Pick a track from the <strong>Live Community Queue</strong> or the <strong>Need Credits?</strong> Label Campaign below.';
       document.getElementById('sessionFeedbackMsg').className = 'muted';
-      document.getElementById('sessionFeedbackMsg').innerHTML = 'Turn on <strong>↻ Loop Track</strong> to keep repeating a song and earning <strong>+1 Credit per loop</strong> until its budget pool runs out.';
+      document.getElementById('sessionFeedbackMsg').innerHTML = 'Turn on <strong>↻ Loop Track</strong> to keep repeating a song and earning <strong>+1 Credit per loop</strong>.';
     }
+
+    async function ensureLabelRosterSeeded() {
+      if (LABEL_ROSTER_TRACKS.length === 0) return;
+      const { data: existingLabelTracks } = await supabase
+        .from('tracks')
+        .select('id, spotify_url')
+        .eq('is_label_campaign', true);
+
+      const existingUrls = new Set((existingLabelTracks || []).map((t) => t.spotify_url.trim()));
+      const toInsert = LABEL_ROSTER_TRACKS
+        .filter((item) => !existingUrls.has(item.spotify_url.trim()))
+        .map((item) => ({
+          submitted_by: item.submitted_by,
+          platform: item.platform,
+          spotify_url: item.spotify_url.trim(),
+          track_title: item.track_title,
+          remaining_listens: 999999,
+          is_label_campaign: true,
+          allow_like: Boolean(item.allow_like),
+          allow_repost: Boolean(item.allow_repost),
+          allow_follow: Boolean(item.allow_follow),
+          artist_profile_url: item.platform === 'soundcloud' ? extractSoundCloudProfileUrl(item.spotify_url, '') : null,
+          total_plays: 0,
+          total_likes: 0,
+          total_reposts: 0,
+          total_follows: 0
+        }));
+
+      if (toInsert.length > 0) {
+        await supabase.from('tracks').insert(toInsert);
+      }
+    }
+
+    // Quick-fill buttons for your label roster artists
+    document.querySelectorAll('.roster-chip-btn').forEach((btn) => {
+      btn.onclick = () => {
+        const artistName = btn.dataset.artist;
+        document.getElementById('labelArtistInput').value = artistName;
+        const titleEl = document.getElementById('labelTitleInput');
+        if (!titleEl.value.trim()) {
+          titleEl.value = `${artistName} - `;
+        }
+        titleEl.focus();
+      };
+    });
 
     // Platform switcher on Promote page
     function setPromotePlatform(plat) {
@@ -603,16 +729,31 @@
       };
     });
 
+    // Need Credits? filter buttons
+    document.querySelectorAll('.grind-filter-btn').forEach((btn) => {
+      btn.onclick = () => {
+        grindFilter = btn.dataset.gfilter;
+        document.querySelectorAll('.grind-filter-btn').forEach((b) => {
+          b.className = b.dataset.gfilter === grindFilter ? 'grind-filter-btn btn-sm' : 'grind-filter-btn btn-secondary btn-sm';
+        });
+        loadNeedCreditsTracks();
+      };
+    });
+
     // Multi-page navigation
     function navigateTo(pageName) {
-      ['home', 'promote', 'mytracks', 'rules'].forEach((p) => {
+      ['home', 'needcredits', 'promote', 'mytracks', 'rules'].forEach((p) => {
         document.getElementById(`page-${p}`).classList.toggle('hidden', p !== pageName);
       });
       document.querySelectorAll('.nav-btn').forEach((btn) => {
         btn.classList.toggle('active', btn.dataset.page === pageName);
       });
+      const showPlayer = pageName === 'home' || pageName === 'needcredits';
+      document.getElementById('activePlayerCard').classList.toggle('hidden', !showPlayer);
+
       if (pageName === 'mytracks') loadMyTracks();
       if (pageName === 'home') loadQueue();
+      if (pageName === 'needcredits') loadNeedCreditsTracks();
       if (pageName === 'promote') {
         document.getElementById('promoteBalanceDisplay').textContent = currentUser ? currentUser.credits : '0';
       }
@@ -621,6 +762,11 @@
     document.getElementById('brandHomeLink').onclick = (e) => {
       e.preventDefault();
       navigateTo('home');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    document.getElementById('jumpToGrindBtn').onclick = () => {
+      navigateTo('needcredits');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
@@ -652,6 +798,7 @@
       const bannerSignOutBtn = document.getElementById('bannerSignOutBtn');
       const creditCount = document.getElementById('creditCount');
       const promoteBal = document.getElementById('promoteBalanceDisplay');
+      const adminBox = document.getElementById('labelAdminBox');
 
       if (currentUser) {
         authCard.classList.add('hidden');
@@ -661,6 +808,7 @@
         bannerSignOutBtn.classList.remove('hidden');
         creditCount.textContent = currentUser.credits;
         promoteBal.textContent = currentUser.credits;
+        adminBox.classList.toggle('hidden', !isAdminUser());
       } else {
         authCard.classList.remove('hidden');
         signedInPill.classList.add('hidden');
@@ -668,6 +816,7 @@
         bannerSignOutBtn.classList.add('hidden');
         creditCount.textContent = '0';
         promoteBal.textContent = '0';
+        adminBox.classList.add('hidden');
       }
     }
 
@@ -758,6 +907,7 @@
       await loadUserListenHistory();
       updateAuthUI();
       await loadQueue();
+      await loadNeedCreditsTracks();
     }
 
     function signOut() {
@@ -771,6 +921,7 @@
       document.getElementById('userStatus').textContent = 'Signed out.';
       updateAuthUI();
       loadQueue();
+      loadNeedCreditsTracks();
     }
 
     async function refreshUser() {
@@ -933,7 +1084,6 @@
       const container = document.getElementById('scTasksContainer');
       const hasAnyAction = track.allow_like || track.allow_repost || track.allow_follow;
 
-      // Only show bonus social tasks if user hasn't already claimed them on a prior listen
       if (!hasAnyAction || hasAlreadyClaimedTrackBefore(track.id)) {
         box.classList.add('hidden');
         container.innerHTML = '';
@@ -1076,10 +1226,12 @@
       return wrap;
     }
 
+    // Load Live Community Queue (non-label campaigns)
     async function loadQueue() {
       let query = supabase
         .from('tracks')
         .select('*')
+        .eq('is_label_campaign', false)
         .gt('remaining_listens', 0)
         .order('remaining_listens', { ascending: false })
         .order('created_at', { ascending: false });
@@ -1096,7 +1248,7 @@
         return;
       }
       if (!data || data.length === 0) {
-        listEl.innerHTML = '<p class="muted">No active campaigns in this view yet. Go to Promote Track to launch one!</p>';
+        listEl.innerHTML = '<p class="muted">No community tracks in this view right now. Use <strong>Need Credits?</strong> below to grind credits on label tracks, or launch your own campaign!</p>';
         return;
       }
 
@@ -1156,6 +1308,97 @@
       });
     }
 
+    async function deleteLabelTrack(track) {
+      if (!isAdminUser()) return;
+      if (!confirm(`Remove "${track.track_title}" from Need Credits?`)) return;
+      await supabase.from('tracks').delete().eq('id', track.id);
+      if (activeTrack && activeTrack.id === track.id) {
+        document.getElementById('embedContainer').innerHTML = '';
+        resetActiveSessionUI();
+      }
+      await loadNeedCreditsTracks();
+    }
+
+    // Load "Need Credits?" Always-On Label Roster Grind Pool
+    async function loadNeedCreditsTracks() {
+      let query = supabase
+        .from('tracks')
+        .select('*')
+        .eq('is_label_campaign', true)
+        .order('created_at', { ascending: false });
+
+      if (grindFilter !== 'all') {
+        query = query.eq('platform', grindFilter);
+      }
+
+      const { data, error } = await query;
+      const listEl = document.getElementById('needCreditsList');
+
+      if (error) {
+        listEl.textContent = 'Could not load label campaign tracks: ' + error.message;
+        return;
+      }
+      if (!data || data.length === 0) {
+        listEl.innerHTML = '<p class="muted">No label tracks added yet. Use Founder Roster Controls above to add songs for Edac, Excape, Jae.trapp, Mistlordrx, and KyleBoomin.</p>';
+        return;
+      }
+
+      const sessionInProgress = Boolean(activeTrack && !creditClaimedForTrack);
+
+      listEl.innerHTML = '';
+      data.forEach((track) => {
+        const plat = track.platform || 'spotify';
+        const priorLoops = userListenCounts.get(track.id) || 0;
+        const isCurrentSession = sessionInProgress && activeTrack.id === track.id;
+
+        const badgeHtml = plat === 'soundcloud'
+          ? '<span class="plat-badge plat-soundcloud">SoundCloud</span>'
+          : '<span class="plat-badge plat-spotify">Spotify</span>';
+
+        const loopNote = priorLoops > 0 ? ` · You ground ${priorLoops}x` : '';
+
+        const row = document.createElement('div');
+        row.className = 'row';
+        row.innerHTML = `
+          <div>
+            <div>${badgeHtml}<span class="plat-badge plat-label">Label Grind</span><strong>${track.track_title}</strong></div>
+            <div class="muted" style="margin-top:3px;">Artist: @${track.submitted_by} · Unlimited Grind Pool${loopNote}</div>
+            ${formatStatsHtml(track)}
+          </div>
+        `;
+
+        const actionsWrap = document.createElement('div');
+        actionsWrap.className = 'row-actions';
+
+        const btn = document.createElement('button');
+        if (isCurrentSession) {
+          btn.textContent = loopTrackEnabled ? 'Grinding Loop ↻' : 'Now Listening...';
+          btn.className = 'btn-active-track';
+          btn.disabled = true;
+        } else if (sessionInProgress) {
+          btn.textContent = 'Finish Current Track';
+          btn.className = 'btn-secondary';
+          btn.disabled = true;
+        } else {
+          btn.textContent = priorLoops > 0 ? 'Grind Again (+1)' : 'Grind +1 Credit';
+          if (plat === 'soundcloud') btn.className = 'btn-sc';
+          btn.onclick = () => startTrackSession(track);
+        }
+        actionsWrap.appendChild(btn);
+
+        if (isAdminUser()) {
+          const delBtn = document.createElement('button');
+          delBtn.textContent = 'Remove';
+          delBtn.className = 'btn-danger btn-sm';
+          delBtn.onclick = () => deleteLabelTrack(track);
+          actionsWrap.appendChild(delBtn);
+        }
+
+        row.appendChild(actionsWrap);
+        listEl.appendChild(row);
+      });
+    }
+
     async function loadMyTracks() {
       const box = document.getElementById('myTracksList');
       if (!currentUser) {
@@ -1166,6 +1409,7 @@
         .from('tracks')
         .select('*')
         .eq('submitted_by', currentUser.username)
+        .eq('is_label_campaign', false)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -1214,6 +1458,8 @@
       }
 
       const plat = track.platform || 'spotify';
+      const poolText = track.is_label_campaign ? 'Unlimited Label Grind' : `Budget pool: ${track.remaining_listens} credits`;
+
       if (plat === 'spotify') {
         const trackId = extractSpotifyTrackId(track.spotify_url);
         if (!trackId) {
@@ -1235,7 +1481,7 @@
         document.getElementById('cancelSessionBtn').classList.remove('hidden');
         document.getElementById('playStateBadge').textContent = 'Press Play inside Spotify player';
         document.getElementById('playStateBadge').className = 'status-paused';
-        document.getElementById('nowPlayingLabel').textContent = `Loaded Spotify: ${track.track_title} (by @${track.submitted_by}) · Budget pool: ${track.remaining_listens} credits`;
+        document.getElementById('nowPlayingLabel').textContent = `Loaded Spotify: ${track.track_title} (by @${track.submitted_by}) · ${poolText}`;
 
         const uri = `spotify:track:${trackId}`;
         if (embedController) {
@@ -1264,12 +1510,13 @@
         document.getElementById('cancelSessionBtn').classList.remove('hidden');
         document.getElementById('playStateBadge').textContent = 'Press Play inside SoundCloud player';
         document.getElementById('playStateBadge').className = 'status-paused';
-        document.getElementById('nowPlayingLabel').textContent = `Loaded SoundCloud: ${track.track_title} (by @${track.submitted_by}) · Budget pool: ${track.remaining_listens} credits`;
+        document.getElementById('nowPlayingLabel').textContent = `Loaded SoundCloud: ${track.track_title} (by @${track.submitted_by}) · ${poolText}`;
 
         mountSoundCloudPlayer(track);
       }
 
       loadQueue();
+      loadNeedCreditsTracks();
     }
 
     document.getElementById('cancelSessionBtn').onclick = () => {
@@ -1279,6 +1526,7 @@
       document.getElementById('embedContainer').innerHTML = '';
       resetActiveSessionUI();
       loadQueue();
+      loadNeedCreditsTracks();
     };
 
     document.getElementById('authSubmitBtn').onclick = handleAuthSubmit;
@@ -1294,18 +1542,74 @@
     document.getElementById('bannerSignOutBtn').onclick = signOut;
     document.getElementById('refreshQueueBtn').onclick = loadQueue;
 
+    // Admin add permanent label track
+    document.getElementById('addLabelTrackBtn').onclick = async () => {
+      const msgEl = document.getElementById('labelAdminMsg');
+      if (!isAdminUser()) return;
+
+      const plat = document.getElementById('labelPlatSelect').value;
+      const artist = document.getElementById('labelArtistInput').value.trim() || currentUser.username;
+      const title = document.getElementById('labelTitleInput').value.trim();
+      const url = document.getElementById('labelUrlInput').value.trim();
+
+      if (!title) {
+        msgEl.className = 'error-text';
+        msgEl.textContent = 'Enter the track title.';
+        return;
+      }
+      if (plat === 'spotify' && !extractSpotifyTrackId(url)) {
+        msgEl.className = 'error-text';
+        msgEl.textContent = 'Enter a valid open.spotify.com/track/... link.';
+        return;
+      }
+      if (plat === 'soundcloud' && !isValidSoundCloudUrl(url)) {
+        msgEl.className = 'error-text';
+        msgEl.textContent = 'Enter a valid soundcloud.com/artist/track link.';
+        return;
+      }
+
+      const isSC = plat === 'soundcloud';
+      const { error } = await supabase.from('tracks').insert([{
+        submitted_by: artist,
+        platform: plat,
+        spotify_url: url,
+        track_title: title,
+        remaining_listens: 999999,
+        is_label_campaign: true,
+        allow_like: isSC,
+        allow_repost: isSC,
+        allow_follow: isSC,
+        artist_profile_url: isSC ? extractSoundCloudProfileUrl(url, '') : null,
+        total_plays: 0,
+        total_likes: 0,
+        total_reposts: 0,
+        total_follows: 0
+      }]);
+
+      if (error) {
+        msgEl.className = 'error-text';
+        msgEl.textContent = 'Error adding label track: ' + error.message;
+        return;
+      }
+
+      document.getElementById('labelTitleInput').value = '';
+      document.getElementById('labelUrlInput').value = '';
+      msgEl.className = 'success-text';
+      msgEl.textContent = `Added "${title}" to Need Credits? Label Grind pool!`;
+      await loadNeedCreditsTracks();
+    };
+
     document.getElementById('claimBtn').onclick = async () => {
       if (!currentUser || !activeTrack || creditClaimedForTrack || secondsListened < LISTEN_GOAL) return;
       const finishedTrack = activeTrack;
 
-      // Re-fetch live track budget right before claiming so we never exceed remaining budget
       const { data: latestTrack } = await supabase
         .from('tracks')
         .select('*')
         .eq('id', finishedTrack.id)
         .single();
 
-      if (!latestTrack || latestTrack.remaining_listens <= 0) {
+      if (!latestTrack || (!latestTrack.is_label_campaign && latestTrack.remaining_listens <= 0)) {
         alert('This track’s campaign budget just ran out!');
         document.getElementById('embedContainer').innerHTML = '';
         resetActiveSessionUI();
@@ -1340,7 +1644,10 @@
         .update({ credits: currentUser.credits + earnedCredits })
         .eq('id', currentUser.id);
 
-      const nextBudget = Math.max(0, latestTrack.remaining_listens - earnedCredits);
+      const nextBudget = latestTrack.is_label_campaign
+        ? 999999
+        : Math.max(0, latestTrack.remaining_listens - earnedCredits);
+
       const { data: updatedTrack } = await supabase
         .from('tracks')
         .update({
@@ -1356,8 +1663,8 @@
 
       await refreshUser();
 
-      // If Loop Mode is ON and budget still remains, keep looping automatically!
-      if (loopTrackEnabled && nextBudget > 0) {
+      const canContinueLooping = loopTrackEnabled && (latestTrack.is_label_campaign || nextBudget > 0);
+      if (canContinueLooping) {
         loopCountThisSession += 1;
         activeTrack = updatedTrack || { ...latestTrack, remaining_listens: nextBudget };
         secondsListened = 0;
@@ -1367,17 +1674,20 @@
         document.getElementById('timerDisplay').textContent = '0';
         document.getElementById('claimBtn').disabled = true;
         document.getElementById('claimBtn').textContent = 'Claim +1 Credit';
-        document.getElementById('nowPlayingLabel').textContent = `Looping (${loopCountThisSession}x claimed): ${activeTrack.track_title} · ${nextBudget} credits left in pool`;
+        const poolLabel = activeTrack.is_label_campaign ? 'Unlimited Label Grind' : `${nextBudget} credits left in pool`;
+        document.getElementById('nowPlayingLabel').textContent = `Looping (${loopCountThisSession}x claimed): ${activeTrack.track_title} · ${poolLabel}`;
         document.getElementById('sessionFeedbackMsg').className = 'success-text';
         document.getElementById('sessionFeedbackMsg').textContent = `+${earnedCredits} Credit claimed! Loop #${loopCountThisSession + 1} started automatically.`;
         restartActivePlayerFromBeginning();
         await loadQueue();
+        await loadNeedCreditsTracks();
         return;
       }
 
       document.getElementById('embedContainer').innerHTML = '';
       resetActiveSessionUI();
       await loadQueue();
+      await loadNeedCreditsTracks();
       if (loopTrackEnabled && nextBudget === 0) {
         alert(`+${earnedCredits} Credit claimed! That song’s budget pool just hit 0 credits.`);
       } else {
@@ -1438,6 +1748,7 @@
           spotify_url: url,
           track_title: title,
           remaining_listens: budget,
+          is_label_campaign: false,
           allow_like: isSC ? document.getElementById('optAllowLike').checked : false,
           allow_repost: isSC ? document.getElementById('optAllowRepost').checked : false,
           allow_follow: isSC ? document.getElementById('optAllowFollow').checked : false,
@@ -1469,8 +1780,9 @@
       msgEl.textContent = `${isSC ? 'SoundCloud' : 'Spotify'} campaign live! ${budget} credits allocated to pool.`;
     };
 
-    // Restore saved session on load
+    // Restore saved session & seed label roster on load
     (async () => {
+      await ensureLabelRosterSeeded();
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         try {
@@ -1484,6 +1796,7 @@
       }
       updateAuthUI();
       await loadQueue();
+      await loadNeedCreditsTracks();
     })();
   </script>
 </body>
