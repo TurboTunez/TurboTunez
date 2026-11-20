@@ -114,6 +114,11 @@
     button:disabled { opacity: 0.35; cursor: not-allowed; }
     .btn-sc { background: #ff5500; color: #fff; }
     .btn-secondary { background: rgba(38, 38, 51, 0.9); color: #f4f4f6; border: 1px solid #38384a; }
+    .btn-loop-on {
+      background: rgba(29, 185, 84, 0.22);
+      color: #6ef29b;
+      border: 1px solid #1db954;
+    }
     .btn-active-track { background: rgba(29, 185, 84, 0.16); color: #6ef29b; border: 1px solid rgba(29, 185, 84, 0.45); opacity: 1 !important; }
     .btn-sm { padding: 6px 12px; font-size: 13px; }
 
@@ -279,13 +284,16 @@
     <!-- PAGE 1: HOME (Player + Live Queue) -->
     <section id="page-home">
       <div class="card">
-        <h2>Active Listening Player</h2>
-        <p id="nowPlayingLabel" class="muted">Pick an unplayed Spotify or SoundCloud track from the Live Queue below.</p>
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px;">
+          <h2 style="margin:0;">Active Listening Player</h2>
+          <button id="loopToggleBtn" class="btn-secondary btn-sm" title="Keep looping the track after claiming to earn unlimited credits until budget runs out">↻ Loop Track: OFF</button>
+        </div>
+        <p id="nowPlayingLabel" class="muted">Pick a Spotify or SoundCloud track from the Live Queue below.</p>
         <div id="embedContainer"></div>
 
-        <!-- SoundCloud Bonus Engagement Checklist (shown when playing a SoundCloud track with enabled actions) -->
+        <!-- SoundCloud Bonus Engagement Checklist -->
         <div id="scBonusBox" class="sc-actions-box hidden">
-          <strong style="font-size:14px; color:#ff9e6d;">SoundCloud Bonus Engagement (+1 Credit per completed action)</strong>
+          <strong style="font-size:14px; color:#ff9e6d;">SoundCloud Bonus Engagement (+1 Credit per completed action, 1x per track)</strong>
           <p class="muted" style="margin:4px 0 8px;">Open the link on SoundCloud, perform the action on your account, then check it off to stack bonus credits alongside your listen.</p>
           <div id="scTasksContainer"></div>
         </div>
@@ -294,9 +302,9 @@
           <span>Verified play time: <strong id="timerDisplay">0</strong> / 28s</span>
           <span id="playStateBadge" class="muted">Waiting for playback...</span>
           <button id="claimBtn" disabled>Claim +1 Credit</button>
-          <button id="cancelSessionBtn" class="btn-secondary btn-sm hidden">Cancel</button>
+          <button id="cancelSessionBtn" class="btn-secondary btn-sm hidden">Stop / Cancel</button>
         </div>
-        <p class="muted" style="margin:10px 0 0;">Each user can earn credit from each queued track <strong>1 time</strong>. Spotify full tracks require browser Spotify login; SoundCloud plays full tracks directly.</p>
+        <p id="sessionFeedbackMsg" class="muted" style="margin:10px 0 0;">Turn on <strong>↻ Loop Track</strong> to keep repeating a song and earning <strong>+1 Credit per loop</strong> until its budget pool runs out.</p>
       </div>
 
       <div class="card">
@@ -385,14 +393,14 @@
     <section id="page-rules" class="hidden">
       <div class="card">
         <h1>How Turbo Tunez Works</h1>
-        <h3>1. Spotify & SoundCloud Exchanges in One Queue</h3>
-        <p class="muted">Play any Spotify or SoundCloud track for 28 verified seconds to earn <strong>+1 Credit</strong>. On SoundCloud tracks where the artist enabled bonus actions, you can also <strong>Like, Repost, and Follow</strong> for <strong>+1 Credit per action</strong>.</p>
-        <h3>2. Real-Time Track Stats</h3>
+        <h3>1. Spotify & SoundCloud Exchanges + Unlimited Loop Mode</h3>
+        <p class="muted">Play any Spotify or SoundCloud track for 28 verified seconds to earn <strong>+1 Credit</strong>. Toggle <strong>↻ Loop Track: ON</strong> in the player to automatically replay the track after claiming and earn another credit on every loop until the song's budget runs out.</p>
+        <h3>2. SoundCloud Bonus Engagement</h3>
+        <p class="muted">On SoundCloud tracks where the artist enabled bonus actions, you can also <strong>Like, Repost, and Follow</strong> on your first pass for <strong>+1 Credit per action</strong>.</p>
+        <h3>3. Real-Time Track Stats</h3>
         <p class="muted">Every submitted song displays live counters for <strong>Plays, Likes, Reposts, and Follows</strong> right in the queue and inside your <strong>My Tracks & Stats</strong> dashboard.</p>
-        <h3>3. Custom Campaign Budgets & Top-Ups (Min 3 Credits)</h3>
-        <p class="muted">Launch any track with at least 3 credits, and click <strong>+1</strong>, <strong>+3</strong>, or <strong>+Custom</strong> anytime you earn more credits to keep your campaign running.</p>
-        <h3>4. Anti-Spam Guarantee</h3>
-        <p class="muted">Each account can only claim a track once, and users cannot farm credits on their own uploads.</p>
+        <h3>4. Custom Campaign Budgets & Top-Ups (Min 3 Credits)</h3>
+        <p class="muted">Launch any track with at least 3 credits, and click <strong>+1</strong>, <strong>+3</strong>, or <strong>+Custom</strong> anytime you earn more credits to keep your campaign running. You cannot farm credits on your own uploads.</p>
       </div>
     </section>
   </div>
@@ -415,20 +423,22 @@
 
     let currentUser = null;
     let authMode = 'signin';
-    let promotePlatform = 'spotify'; // 'spotify' | 'soundcloud'
-    let queueFilter = 'all'; // 'all' | 'spotify' | 'soundcloud'
+    let promotePlatform = 'spotify';
+    let queueFilter = 'all';
     let activeTrack = null;
-    let listenedTrackIds = new Set();
+    let loopTrackEnabled = false;
+    let loopCountThisSession = 0;
+    let userListenCounts = new Map(); // track_id -> number of listens by current user
     let secondsListened = 0;
     let isActuallyPlaying = false;
     let lastTickMs = null;
     let scPollInterval = null;
+    let scWidgetInstance = null;
     let creditClaimedForTrack = false;
     let spotifyApi = null;
     let embedController = null;
     let pendingUri = null;
 
-    // SoundCloud bonus task completion state for active session
     let scActionState = { like: false, repost: false, follow: false };
 
     async function hashPassword(password) {
@@ -467,31 +477,50 @@
       return `<div class="stats-strip">${parts.map((p) => `<span class="stat-chip">${p}</span>`).join('')}</div>`;
     }
 
+    function hasAlreadyClaimedTrackBefore(trackId) {
+      return (userListenCounts.get(trackId) || 0) > 0;
+    }
+
     function calculateTotalClaimableCredits() {
       if (!activeTrack) return 1;
       let total = 1; // base 28s listen
-      if ((activeTrack.platform || 'spotify') === 'soundcloud') {
+      // Bonus social actions apply only on the first claim for that track
+      if ((activeTrack.platform || 'spotify') === 'soundcloud' && !hasAlreadyClaimedTrackBefore(activeTrack.id)) {
         if (activeTrack.allow_like && scActionState.like) total += 1;
         if (activeTrack.allow_repost && scActionState.repost) total += 1;
         if (activeTrack.allow_follow && scActionState.follow) total += 1;
       }
-      // Cap by remaining campaign budget
       return Math.min(total, activeTrack.remaining_listens);
     }
 
     function updateClaimButtonLabel() {
       const btn = document.getElementById('claimBtn');
       const credits = calculateTotalClaimableCredits();
-      btn.textContent = `Claim +${credits} ${credits === 1 ? 'Credit' : 'Credits'}`;
+      btn.textContent = loopTrackEnabled
+        ? `Claim +${credits} & Loop ↻`
+        : `Claim +${credits} ${credits === 1 ? 'Credit' : 'Credits'}`;
     }
+
+    // Loop mode toggle
+    document.getElementById('loopToggleBtn').onclick = () => {
+      loopTrackEnabled = !loopTrackEnabled;
+      const btn = document.getElementById('loopToggleBtn');
+      btn.textContent = loopTrackEnabled ? '↻ Loop Track: ON' : '↻ Loop Track: OFF';
+      btn.className = loopTrackEnabled ? 'btn-loop-on btn-sm' : 'btn-secondary btn-sm';
+      if (activeTrack && !document.getElementById('claimBtn').disabled) {
+        updateClaimButtonLabel();
+      }
+    };
 
     function resetActiveSessionUI() {
       activeTrack = null;
+      loopCountThisSession = 0;
       secondsListened = 0;
       isActuallyPlaying = false;
       lastTickMs = null;
       creditClaimedForTrack = false;
       scActionState = { like: false, repost: false, follow: false };
+      scWidgetInstance = null;
       clearInterval(scPollInterval);
       scPollInterval = null;
 
@@ -503,7 +532,9 @@
       document.getElementById('scTasksContainer').innerHTML = '';
       document.getElementById('playStateBadge').textContent = 'Waiting for playback...';
       document.getElementById('playStateBadge').className = 'muted';
-      document.getElementById('nowPlayingLabel').textContent = 'Pick an unplayed Spotify or SoundCloud track from the Live Queue below.';
+      document.getElementById('nowPlayingLabel').textContent = 'Pick a Spotify or SoundCloud track from the Live Queue below.';
+      document.getElementById('sessionFeedbackMsg').className = 'muted';
+      document.getElementById('sessionFeedbackMsg').innerHTML = 'Turn on <strong>↻ Loop Track</strong> to keep repeating a song and earning <strong>+1 Credit per loop</strong> until its budget pool runs out.';
     }
 
     // Platform switcher on Promote page
@@ -641,14 +672,16 @@
     }
 
     async function loadUserListenHistory() {
-      listenedTrackIds = new Set();
+      userListenCounts = new Map();
       if (!currentUser) return;
       const { data } = await supabase
         .from('listens')
         .select('track_id')
         .eq('user_id', currentUser.id);
       if (data) {
-        data.forEach((row) => listenedTrackIds.add(row.track_id));
+        data.forEach((row) => {
+          userListenCounts.set(row.track_id, (userListenCounts.get(row.track_id) || 0) + 1);
+        });
       }
     }
 
@@ -729,7 +762,7 @@
 
     function signOut() {
       currentUser = null;
-      listenedTrackIds = new Set();
+      userListenCounts = new Map();
       resetActiveSessionUI();
       localStorage.removeItem(STORAGE_KEY);
       document.getElementById('usernameInput').value = '';
@@ -770,13 +803,17 @@
 
       const shownSec = Math.min(LISTEN_GOAL, Math.floor(secondsListened));
       document.getElementById('timerDisplay').textContent = String(shownSec);
-      badge.textContent = 'Playing...';
+      badge.textContent = loopCountThisSession > 0
+        ? `Playing Loop #${loopCountThisSession + 1}...`
+        : 'Playing...';
       badge.className = 'status-live';
 
       if (secondsListened >= LISTEN_GOAL && !creditClaimedForTrack && currentUser) {
         document.getElementById('claimBtn').disabled = false;
         updateClaimButtonLabel();
-        badge.textContent = 'Goal reached! Claim your credits';
+        badge.textContent = loopTrackEnabled
+          ? 'Goal reached! Claim & keep looping'
+          : 'Goal reached! Claim your credits';
       }
     }
 
@@ -819,6 +856,7 @@
     // SoundCloud Widget Player Setup
     function mountSoundCloudPlayer(track) {
       embedController = null;
+      scWidgetInstance = null;
       clearInterval(scPollInterval);
       const container = document.getElementById('embedContainer');
       const encodedUrl = encodeURIComponent(track.spotify_url.trim());
@@ -837,6 +875,7 @@
       const iframeEl = document.getElementById('scWidgetFrame');
       if (window.SC && window.SC.Widget) {
         const widget = window.SC.Widget(iframeEl);
+        scWidgetInstance = widget;
         widget.bind(window.SC.Widget.Events.PLAY, () => {
           isActuallyPlaying = true;
           lastTickMs = Date.now();
@@ -849,8 +888,13 @@
           badge.className = 'status-paused';
         });
         widget.bind(window.SC.Widget.Events.FINISH, () => {
-          isActuallyPlaying = false;
-          lastTickMs = null;
+          if (loopTrackEnabled && activeTrack && activeTrack.platform === 'soundcloud') {
+            widget.seekTo(0);
+            widget.play();
+          } else {
+            isActuallyPlaying = false;
+            lastTickMs = null;
+          }
         });
 
         scPollInterval = setInterval(() => {
@@ -866,13 +910,33 @@
       renderSoundCloudBonusTasks(track);
     }
 
+    function restartActivePlayerFromBeginning() {
+      if (!activeTrack) return;
+      const plat = activeTrack.platform || 'spotify';
+      if (plat === 'spotify' && embedController) {
+        try {
+          embedController.restart();
+        } catch (_) {
+          const trackId = extractSpotifyTrackId(activeTrack.spotify_url);
+          if (trackId) embedController.loadUri(`spotify:track:${trackId}`);
+        }
+      } else if (plat === 'soundcloud' && scWidgetInstance) {
+        try {
+          scWidgetInstance.seekTo(0);
+          scWidgetInstance.play();
+        } catch (_) {}
+      }
+    }
+
     function renderSoundCloudBonusTasks(track) {
       const box = document.getElementById('scBonusBox');
       const container = document.getElementById('scTasksContainer');
       const hasAnyAction = track.allow_like || track.allow_repost || track.allow_follow;
 
-      if (!hasAnyAction) {
+      // Only show bonus social tasks if user hasn't already claimed them on a prior listen
+      if (!hasAnyAction || hasAlreadyClaimedTrackBefore(track.id)) {
         box.classList.add('hidden');
+        container.innerHTML = '';
         return;
       }
 
@@ -1042,19 +1106,21 @@
       data.forEach((track) => {
         const plat = track.platform || 'spotify';
         const isOwnTrack = currentUser && track.submitted_by.toLowerCase() === currentUser.username.toLowerCase();
-        const alreadyListened = listenedTrackIds.has(track.id);
+        const priorLoops = userListenCounts.get(track.id) || 0;
         const isCurrentSession = sessionInProgress && activeTrack.id === track.id;
 
         const badgeHtml = plat === 'soundcloud'
           ? '<span class="plat-badge plat-soundcloud">SoundCloud</span>'
           : '<span class="plat-badge plat-spotify">Spotify</span>';
 
+        const loopNote = priorLoops > 0 ? ` · You looped ${priorLoops}x` : '';
+
         const row = document.createElement('div');
         row.className = 'row';
         row.innerHTML = `
           <div>
             <div>${badgeHtml}<strong>${track.track_title}</strong></div>
-            <div class="muted" style="margin-top:3px;">Queued by @${track.submitted_by} · Budget pool: ${track.remaining_listens} credits</div>
+            <div class="muted" style="margin-top:3px;">Queued by @${track.submitted_by} · Budget pool: ${track.remaining_listens} credits${loopNote}</div>
             ${formatStatsHtml(track)}
           </div>
         `;
@@ -1064,17 +1130,17 @@
         } else {
           const btn = document.createElement('button');
           if (isCurrentSession) {
-            btn.textContent = 'Now Listening...';
+            btn.textContent = loopTrackEnabled ? 'Looping Active ↻' : 'Now Listening...';
             btn.className = 'btn-active-track';
-            btn.disabled = true;
-          } else if (alreadyListened) {
-            btn.textContent = 'Completed ✓';
-            btn.className = 'btn-secondary';
             btn.disabled = true;
           } else if (sessionInProgress) {
             btn.textContent = 'Finish Current Track';
             btn.className = 'btn-secondary';
             btn.disabled = true;
+          } else if (priorLoops > 0) {
+            btn.textContent = 'Loop Again (+1)';
+            if (plat === 'soundcloud') btn.className = 'btn-sc';
+            btn.onclick = () => startTrackSession(track);
           } else {
             const maxEarn = plat === 'soundcloud'
               ? 1 + (track.allow_like ? 1 : 0) + (track.allow_repost ? 1 : 0) + (track.allow_follow ? 1 : 0)
@@ -1146,10 +1212,6 @@
         alert('Sign in or create a free account first so your credits can be saved!');
         return;
       }
-      if (listenedTrackIds.has(track.id)) {
-        alert('You already completed this track and claimed your credits.');
-        return;
-      }
 
       const plat = track.platform || 'spotify';
       if (plat === 'spotify') {
@@ -1159,6 +1221,7 @@
           return;
         }
         activeTrack = track;
+        loopCountThisSession = 0;
         secondsListened = 0;
         isActuallyPlaying = false;
         lastTickMs = null;
@@ -1172,7 +1235,7 @@
         document.getElementById('cancelSessionBtn').classList.remove('hidden');
         document.getElementById('playStateBadge').textContent = 'Press Play inside Spotify player';
         document.getElementById('playStateBadge').className = 'status-paused';
-        document.getElementById('nowPlayingLabel').textContent = `Loaded Spotify: ${track.track_title} (by @${track.submitted_by})`;
+        document.getElementById('nowPlayingLabel').textContent = `Loaded Spotify: ${track.track_title} (by @${track.submitted_by}) · Budget pool: ${track.remaining_listens} credits`;
 
         const uri = `spotify:track:${trackId}`;
         if (embedController) {
@@ -1188,6 +1251,7 @@
           return;
         }
         activeTrack = track;
+        loopCountThisSession = 0;
         secondsListened = 0;
         isActuallyPlaying = false;
         lastTickMs = null;
@@ -1200,7 +1264,7 @@
         document.getElementById('cancelSessionBtn').classList.remove('hidden');
         document.getElementById('playStateBadge').textContent = 'Press Play inside SoundCloud player';
         document.getElementById('playStateBadge').className = 'status-paused';
-        document.getElementById('nowPlayingLabel').textContent = `Loaded SoundCloud: ${track.track_title} (by @${track.submitted_by})`;
+        document.getElementById('nowPlayingLabel').textContent = `Loaded SoundCloud: ${track.track_title} (by @${track.submitted_by}) · Budget pool: ${track.remaining_listens} credits`;
 
         mountSoundCloudPlayer(track);
       }
@@ -1233,56 +1297,92 @@
     document.getElementById('claimBtn').onclick = async () => {
       if (!currentUser || !activeTrack || creditClaimedForTrack || secondsListened < LISTEN_GOAL) return;
       const finishedTrack = activeTrack;
+
+      // Re-fetch live track budget right before claiming so we never exceed remaining budget
+      const { data: latestTrack } = await supabase
+        .from('tracks')
+        .select('*')
+        .eq('id', finishedTrack.id)
+        .single();
+
+      if (!latestTrack || latestTrack.remaining_listens <= 0) {
+        alert('This track’s campaign budget just ran out!');
+        document.getElementById('embedContainer').innerHTML = '';
+        resetActiveSessionUI();
+        await loadQueue();
+        return;
+      }
+
+      activeTrack = latestTrack;
       const earnedCredits = calculateTotalClaimableCredits();
-      const didLike = Boolean(finishedTrack.allow_like && scActionState.like);
-      const didRepost = Boolean(finishedTrack.allow_repost && scActionState.repost);
-      const didFollow = Boolean(finishedTrack.allow_follow && scActionState.follow);
+      const firstPass = !hasAlreadyClaimedTrackBefore(latestTrack.id);
+      const didLike = Boolean(firstPass && latestTrack.allow_like && scActionState.like);
+      const didRepost = Boolean(firstPass && latestTrack.allow_repost && scActionState.repost);
+      const didFollow = Boolean(firstPass && latestTrack.allow_follow && scActionState.follow);
 
       creditClaimedForTrack = true;
       document.getElementById('claimBtn').disabled = true;
 
-      const { error: listenErr } = await supabase
+      await supabase
         .from('listens')
         .insert([{
           user_id: currentUser.id,
-          track_id: finishedTrack.id,
+          track_id: latestTrack.id,
           did_like: didLike,
           did_repost: didRepost,
           did_follow: didFollow
         }]);
 
-      if (listenErr) {
-        alert('You already claimed credits for this track.');
-        resetActiveSessionUI();
-        await loadUserListenHistory();
-        await loadQueue();
-        return;
-      }
-
-      listenedTrackIds.add(finishedTrack.id);
+      userListenCounts.set(latestTrack.id, (userListenCounts.get(latestTrack.id) || 0) + 1);
 
       await supabase
         .from('profiles')
         .update({ credits: currentUser.credits + earnedCredits })
         .eq('id', currentUser.id);
 
-      const nextListens = Math.max(0, finishedTrack.remaining_listens - earnedCredits);
-      await supabase
+      const nextBudget = Math.max(0, latestTrack.remaining_listens - earnedCredits);
+      const { data: updatedTrack } = await supabase
         .from('tracks')
         .update({
-          remaining_listens: nextListens,
-          total_plays: (finishedTrack.total_plays || 0) + 1,
-          total_likes: (finishedTrack.total_likes || 0) + (didLike ? 1 : 0),
-          total_reposts: (finishedTrack.total_reposts || 0) + (didRepost ? 1 : 0),
-          total_follows: (finishedTrack.total_follows || 0) + (didFollow ? 1 : 0)
+          remaining_listens: nextBudget,
+          total_plays: (latestTrack.total_plays || 0) + 1,
+          total_likes: (latestTrack.total_likes || 0) + (didLike ? 1 : 0),
+          total_reposts: (latestTrack.total_reposts || 0) + (didRepost ? 1 : 0),
+          total_follows: (latestTrack.total_follows || 0) + (didFollow ? 1 : 0)
         })
-        .eq('id', finishedTrack.id);
+        .eq('id', latestTrack.id)
+        .select()
+        .single();
+
+      await refreshUser();
+
+      // If Loop Mode is ON and budget still remains, keep looping automatically!
+      if (loopTrackEnabled && nextBudget > 0) {
+        loopCountThisSession += 1;
+        activeTrack = updatedTrack || { ...latestTrack, remaining_listens: nextBudget };
+        secondsListened = 0;
+        creditClaimedForTrack = false;
+        scActionState = { like: false, repost: false, follow: false };
+        document.getElementById('scBonusBox').classList.add('hidden');
+        document.getElementById('timerDisplay').textContent = '0';
+        document.getElementById('claimBtn').disabled = true;
+        document.getElementById('claimBtn').textContent = 'Claim +1 Credit';
+        document.getElementById('nowPlayingLabel').textContent = `Looping (${loopCountThisSession}x claimed): ${activeTrack.track_title} · ${nextBudget} credits left in pool`;
+        document.getElementById('sessionFeedbackMsg').className = 'success-text';
+        document.getElementById('sessionFeedbackMsg').textContent = `+${earnedCredits} Credit claimed! Loop #${loopCountThisSession + 1} started automatically.`;
+        restartActivePlayerFromBeginning();
+        await loadQueue();
+        return;
+      }
 
       document.getElementById('embedContainer').innerHTML = '';
       resetActiveSessionUI();
-      await refreshUser();
       await loadQueue();
-      alert(`+${earnedCredits} ${earnedCredits === 1 ? 'Credit' : 'Credits'} claimed! Pick your next track from the queue.`);
+      if (loopTrackEnabled && nextBudget === 0) {
+        alert(`+${earnedCredits} Credit claimed! That song’s budget pool just hit 0 credits.`);
+      } else {
+        alert(`+${earnedCredits} ${earnedCredits === 1 ? 'Credit' : 'Credits'} claimed! Pick your next track or turn on Loop Track to repeat.`);
+      }
     };
 
     document.getElementById('submitTrackBtn').onclick = async () => {
